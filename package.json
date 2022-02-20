@@ -12,7 +12,8 @@
     "compile": "npx tsc",
     "test": "npx jest test",
     "lint": "npx eslint",
-    "pipeline-lint": "npx eslint"
+    "pipeline-lint": "npx eslint",
+    "clean": "rm -rf lib"
   },
   "repository": {
     "type": "git",

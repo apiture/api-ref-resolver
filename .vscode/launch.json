@@ -5,9 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "node",
+            "name": "ARR vscode-jest-tests",
+            "request": "launch",
+            "program": "${workspaceFolder}/node_modules/.bin/jest",
+            "args": [
+                "--runInBand",
+                "--watchAll=false"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "disableOptimisticBPs": true,
+            "windows": {
+                "program": "${workspaceFolder}/node_modules/jest/bin/jest"
+            }
+        },
+        {
             "type": "pwa-node",
             "request": "launch",
-            "name": "api-ref-resolver",
+            "name": "ARR api-b/api.yaml",
             "skipFiles": [
                 "<node_internals>/**"
             ],

@@ -13,7 +13,7 @@ describe("resolver test suite", () => {
 
         const resolver = new ApiRefResolver();
         resolver
-            .resolve(sourceFileName, openApiObject, options)
+            .resolve(openApiObject, sourceFileName, options)
             .then( (result) => {
                 const resolved = result.api as any;
                 expect(resolved).toBeDefined();
@@ -33,7 +33,7 @@ describe("resolver test suite", () => {
 
         const resolver = new ApiRefResolver();
         resolver
-            .resolve(sourceFileName, openApiObject, options)
+            .resolve(openApiObject, sourceFileName, options)
             .then( (result) => {
                 const resolved = result.api as any;
                 const schemas = Object.keys(openApiObject.components.schemas);

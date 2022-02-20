@@ -95,9 +95,9 @@ export class ApiRefResolver {
   /** Maps normalized path names or URLs to API document objects */
   private externalFileMap: { [path: string]: ApiObject } = {};
   // private options: ApiRefOptions = {};
-  async resolve(apiDocument: ApiObject, path: string, options: ApiRefOptions = {}): Promise<ApiRefResolved> {
+  async resolve(apiDocument: ApiObject, uri: string, options: ApiRefOptions = {}): Promise<ApiRefResolved> {
     // this.options = options;
-    this.externalFileMap[path] = apiDocument;
+    this.externalFileMap[uri] = apiDocument;
     this.walkObject(apiDocument, new Path(), new Ancestry(apiDocument), refVisitor);
     return { api: apiDocument };
   }
@@ -105,7 +105,7 @@ export class ApiRefResolver {
   /**
    * Walk a JSON object or array and apply f when a $ref is found
    * @param node a node in the OpenAPI document
-   * @param path the path to this node.
+   * @param path the path to this node, such as `[ 'components', 'schemas', 'mySchema', 'allOf', 0 ]`
    * @param ancestry the parent objects, one per path element.
    * @param f the function to call on found reference objects
    * @return the modified (annotated) node
