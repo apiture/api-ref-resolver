@@ -1,0 +1,156 @@
+openapi: 3.0.2
+info:
+  title: Common API Components
+  description: 'API components (schemas, parameters, responses) shared across other APIs.'
+  version: 0.1.0
+  contact: {}
+servers:
+  - url: /a
+tags:
+  - name: A
+    description: A
+paths: {}
+components:
+  parameters:
+    idempotencyKeyHeaderParam:
+      name: Idempotency-Key
+      description: Idempotency Key to guarantee client requests and not processed multiple times.
+      in: header
+      schema:
+        type: string
+        maxLength: 48
+        minLength: 16
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: API-Key
+      in: header
+      description: 'API Key based client identification.'
+
+  responses:
+    '204':
+      description: No Content. The operation succeeded but returned no response body.
+    '304':
+      description: Not Modified. The resource has not been modified since it was last fetched.
+    '400':
+      description: Bad Request. The request body or one or more of the query parameters was not well-formed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problemResponse'
+    '401':
+      description: Unauthorized. The operation require authentication but none was given.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problemResponse'
+    '403':
+      description: Forbidden. The authenticated caller is not authorized to perform the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problemResponse'
+      headers:
+        WWW-Authenticate:
+          description: 'Indicates the additional [authentication scheme(s) and parameters](https://datatracker.ietf.org/doc/html/rfc7235#section-4.1) applicable to the target resource/operation.'
+          schema:
+            type: string
+    '404':
+      description: Not found. There is no such resource at the request URL.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problemResponse'
+
+  schemas:
+
+    apiProblem:
+      title: API Problem
+      description: 'API problem or error, as per [RFC 7807 application/problem+json](https://tools.ietf.org/html/rfc7807).'
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: >
+            A URI reference [RFC3986] that identifies the
+            problem type. If present, this is a URL of human-readable HTML documentation for the
+            problem type.
+            When this member is not present, its value is assumed to be `"about:blank"`.
+          default: 'about:blank'
+          example: 'https://api.example.com/errors/connectionError'
+        title:
+          type: string
+          description: >
+            A short, human-readable summary of the problem type.
+            The title is usually the same for all problem with the same `type`.
+          example: User is not authorized to perform the requested action or access the requested resource.
+        status:
+          type: integer
+          format: int32
+          description: >
+            The [HTTP status code](https://datatracker.ietf.org/doc/html/rfc7231#section-6)
+            for this occurrence of the problem.
+          minimum: 100
+          maximum: 599
+          example: 403
+        detail:
+          type: string
+          description: >
+            A human-readable explanation specific to this occurrence of the problem.
+          example: Connection to database timed out
+        instance:
+          type: string
+          format: uri-reference
+          description: >
+            A URI reference that identifies the specific occurrence of the problem.
+            This is the URI of an API resource that the problem is related to,
+            with a unique error correlation ID URI fragment
+          example: 'https://prduction.api.example.com/banking/accounts/ad80fc3e722q5402a#189c13ff-c54c-45f7-b8e0-c88984ba724d'
+        errors:
+          description: Optional root-cause errors if there are multiple errors in the request or API call processing.
+          type: array
+          items:
+            $ref: '#/components/schemas/apiProblem'
+        attributes:
+          type: object
+          description: Additional optional attributes related to the problem.
+            This data conforms to the schema associated with the error type.
+          additionalProperties: true
+      example:
+        type: 'https://api.example.com/errors/accountNotFound/v1.0.0'
+        title: Account Not Found
+        status: 422
+        detail: No account exists at the given account_url
+        instance: https://api.example.com/banking/transfers/bb709151-575041fcd617
+
+    problemResponse:
+      title: Problem Response
+      description: 'API problem or error response, as per [RFC 7807 application/problem+json](https://tools.ietf.org/html/rfc7807).'
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/base'
+        - $ref: '#/components/schemas/apiProblem'
+      example:
+        profile_url: 'https://api.example.com/schemas/common/problemResponse/0.2.0/profile.json'
+        type: 'https://api.example.com/errors/accountNotFound/v1.0.0'
+        title: Account Not Found
+        status: 422
+        detail: No account exists at the given account_url
+        instance: https://api.example.com/banking/transfers/bb709151-575041fcd617
+
+    base:
+      title: Base Abstract Body
+      description: An abstract schema used to define other request and response body model schemas.
+      type: object
+      required:
+        - profile_url
+      properties:
+        profileUri:
+          description: 'The URL of a resource profile which describes the representation.'
+          type: string
+          format: uri
+          readOnly: true
+      example:
+        profile_url: 'https://api.example.com/schemas/common/abstractBody/v0.1.0/profile.json'
+

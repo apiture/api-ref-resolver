@@ -1,0 +1,44 @@
+openapi: 3.0.0
+info:
+  title: Root API Elements
+  description: 'Non-component API API elements'
+  version: 0.1.0
+  contact: {}
+servers:
+  - url: /root
+tags:
+  - name: Health
+    description: API Health
+paths:
+  '/health':
+    get:
+      operationId: apiHealth
+      description: Return API Health
+      tags:
+        - Health
+      responses:
+        '200':
+          description: OK. The API is alive and active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/health'
+components:
+  schemas:
+    health:
+      title: API Health
+      description: >-
+        API Health response as per
+        [IEFT RFC draft-inadarei-api-health-check-06](https://datatracker.ietf.org/doc/html/draft-inadarei-api-health-check_)
+        (truncated).
+      type: object
+      properties:
+        status:
+          description: The API status.
+          type: string
+          enum:
+            - pass
+            - fail
+            - warn
+      example:
+        status: pass
