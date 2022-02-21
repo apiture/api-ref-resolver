@@ -11,7 +11,7 @@
     "prepare": "npx tsc",
     "compile": "npx tsc",
     "test": "npx jest test",
-    "lint": "npx eslint",
+    "lint": "npx eslint src/**/*.ts",
     "pipeline-lint": "npx eslint",
     "clean": "rm -rf lib"
   },
@@ -34,8 +34,12 @@
   "license": "ISC",
   "homepage": "https://bitbucket.org/APITURE/api-ref-resolver#readme",
   "dependencies": {
+    "@jest/globals": "^27.5.1",
+    "bl": "^5.0.0",
     "commander": "^9.0.0",
+    "fs-extra": "^10.0.0",
     "jest": "^27.5.1",
+    "js-yaml": "^4.1.0",
     "json-pointer": "^0.6.1",
     "pre-push": "^0.1.1",
     "ts-jest": "^27.1.3",
@@ -46,7 +50,11 @@
     "@typescript-eslint/eslint-plugin": "^5.12.0",
     "@typescript-eslint/parser": "^5.12.0",
     "eslint": "^8.9.0",
+    "eslint-config-airbnb": "^18.2.1",
     "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.25.4"
+    "eslint-config-airbnb-typescript": "^8.0.2",
+    "eslint-plugin-import": "^2.25.4",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.5.1"
   }
 }
