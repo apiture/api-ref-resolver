@@ -9,19 +9,13 @@ import * as yaml from 'js-yaml';
 
 import { Ancestry } from './Ancestry';
 import { JsonKeys } from './JsonKeys';
+import { walkObject } from './RefVisitor';
+import type { RefVisitor, Node } from './RefVisitor';
 
 /**
  * ApiObject represents an OpenAPI or Async API object
  */
 export type ApiObject = Record<string, object|[]|boolean|null|number>;
-
-/**
- * A container: a JSON object or array - a container node
- */
-export type Node = object | [];
-
-// eslint-disable-next-line no-unused-vars
-export type RefVisitor = (node: Node, path: JsonKeys, ancestry: Ancestry) => Node;
 
 export interface ApiRefOptions {
   /** If true, log more info to console.warn */
@@ -96,7 +90,8 @@ export class ApiRefResolver {
     }
     this.urlToApiObjectMap[this.url.toString()] = this.apiDocument;
     this.options = options;
-    this.walkObject(this.apiDocument, new JsonKeys(), new Ancestry(this.apiDocument), this.refVisitor);
+    const refVisitor : RefVisitor = this.refVisitor;
+    walkObject(this.apiDocument, new JsonKeys(), new Ancestry(this.apiDocument), refVisitor);
     return { api: this.apiDocument, options: this.options };
   }
 
@@ -239,60 +234,5 @@ export class ApiRefResolver {
     }
     return node;
   }
-
-  /**
-   * Walk a JSON object or array and apply f when a $ref is found
-   * @param node a node in the OpenAPI document
-   * @param path the path to this node, such as `[ 'components', 'schemas', 'mySchema', 'allOf', 0 ]`
-   * @param ancestry the parent objects, one per path element.
-   * @param f the function to call on found reference objects
-   * @return the modified (annotated) node
-   */
-  private walkObject(node: object, path: JsonKeys, ancestry: Ancestry, f: RefVisitor): object {
-    if (this.isRef(node)) {
-      f(node, path, ancestry);
-    }
-    const modNode: object = node;
-    const keys = [...Object.keys(node)]; // make copy since this code may re-enter objects
-    keys.forEach((key) => {
-      let val = node[key];
-      if (val !== null && val instanceof Array) {
-        val = this.walkArray(val as [], path.with(key), ancestry.with(modNode), f);
-      } else if (val !== null && typeof val === 'object') {
-        val = this.walkObject(val, path.with(key), ancestry.with(modNode), f);
-      }
-      node[key] = val;
-    });
-    return modNode;
-  }
-
-  isRef(node: Node): boolean {
-    return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof node['$ref'] === 'string';
-  }
-
-  /**
-   * Walk an array and apply f to any item that is a ref object
-   * @param a an array node in the OpenAPI document
-   * @param path the path to this node.
-   * @param ancestry the parent objects, one per path element.
-   * @param f the function to call on found reference objects
-   * @return the modified (annotated) node
-   */
-  private walkArray(a: [], path: JsonKeys, ancestry: Ancestry, f): [] {
-    for (let index = 0; index < a.length; index = index + 1) {
-      const val = a[index] as Node;
-      const itemPath = path.with(index);
-      const itemAncestry = ancestry.with(a);
-      if (val !== null && typeof val === 'object') {
-        const modified = this.walkObject(val, itemPath, itemAncestry, f) as object;
-        (a as Node[])[index] = modified;
-      } else if (val !== null && val instanceof Array) {
-        const modified = this.walkArray(val as [], itemPath, itemAncestry, f) as [];
-        (a as Node[])[index] = modified;
-      }
-    }
-    return a;
-  }
 }
 
-export default ApiRefResolver;
