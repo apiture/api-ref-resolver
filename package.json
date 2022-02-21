@@ -11,7 +11,7 @@
     "prepare": "npx tsc",
     "compile": "npx tsc",
     "test": "npx jest test",
-    "lint": "npx eslint src/**/*.ts",
+    "lint": "npx eslint 'src/**/*.ts' 'test/**/*.ts'",
     "pipeline-lint": "npx eslint",
     "clean": "rm -rf lib"
   },

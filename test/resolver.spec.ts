@@ -2,6 +2,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import {
     describe, 
     expect, 
@@ -14,7 +16,7 @@ import { ApiRefResolver } from '../src/ApiRefResolver';
 
 describe('resolver test suite', () => {
   test('resolve single file results in same object', (done) => {
-    const sourceFileName = path.join(__dirname, 'test-data/root.yaml');// __dirname is the test dir
+    const sourceFileName = path.join(__dirname, 'test/root.yaml');// __dirname is the test dir
     console.log(sourceFileName);
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA});
     const resolver = new ApiRefResolver(sourceFileName);
@@ -30,7 +32,7 @@ describe('resolver test suite', () => {
       });
   });
   test('resolve scans multi-file OpenAPI document', (done) => {
-    const sourceFileName = path.join(__dirname, 'test-data/api-b/api.yaml'); // __dirname is the test dir
+    const sourceFileName = path.join(__dirname, 'test/api-b/api.yaml'); // __dirname is the test dir
     console.log(sourceFileName);
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA});
     expect(original).toBeDefined();
@@ -50,7 +52,7 @@ describe('resolver test suite', () => {
   });
 
   xit('resolve components from multi-file OpenAPI document', (done) => {
-    const sourceFileName = 'test-data/api-b/api.yaml';
+    const sourceFileName = 'test/api-b/api.yaml';
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve()
