@@ -1,5 +1,5 @@
 
-openapi: 3.0.2
+openapi: 3.1.0
 info:
   title: Multi-file OpenAPI
   description: 'API definition that references components from ../api-a/api.yaml'
@@ -29,10 +29,14 @@ paths:
         content:
             application/json:
               schema:
-                $ref: '#/components/schemas/thing'
+                $ref: '../api-a/api.yaml#/components/schemas/thing'
       responses:
         '200':
-          $ref: '#/components/responses/200'
+          description: OK. A thing was returned.
+          content:  
+            application/json:
+              schema:
+                $ref: '../api-a/api.yaml#/components/schemas/thing'
         '400':
           $ref: "../api-a/api.yaml#/components/responses/400"
         '401':
@@ -50,34 +54,4 @@ components:
 
   responses:
 
-    '200':
-      description: OK. A thing was returned.
-      content:  
-        application/json:
-          schema:
-            $ref: '#/components/schemas/thing'
   schemas:
-
-    thing:
-      title: Thing
-      description: A Thing!
-      type: object
-      allOf:
-        - $ref: "../api-a/api.yaml#/components/schemas/base"
-        - type: object
-          required:
-            - thing1
-            - thing2
-          properties:
-            thing1:
-              description: Thing 1
-              type: string
-              example: Thing 1
-            thing2:
-              description: Thing 2
-              type: string
-              example: Thing 2
-      example:
-        profile_url: 'https://api.apiture.com/schemas/b/thing/0.2.0/profile.json'
-        thing1: Thing 1
-        thing2: Thing 2

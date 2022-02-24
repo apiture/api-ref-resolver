@@ -1,0 +1,5 @@
+title: Percentage
+description: An integer between 0 and 100, inclusive
+type: integer
+minimum: 0
+maximum: 100

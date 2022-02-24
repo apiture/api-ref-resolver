@@ -7,15 +7,15 @@ import * as path from 'path';
 import {
     describe, 
     expect, 
-    test, 
-    xit,
+    test,
+    xit
 } from '@jest/globals';
 import * as yaml from 'js-yaml';
 
 import { ApiRefResolver } from '../src/ApiRefResolver';
 
 describe('resolver test suite', () => {
-  test('resolve single file results in same object', (done) => {
+  test('resolves single file results in same object', (done) => {
     const sourceFileName = path.join(__dirname, 'data/root.yaml');// __dirname is the test dir
     console.log(sourceFileName);
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA});
@@ -31,9 +31,33 @@ describe('resolver test suite', () => {
         done(ex);
       });
   });
-  test('resolve scans multi-file OpenAPI document', (done) => {
-    const sourceFileName = path.join(__dirname, 'data/api-b/api.yaml'); // __dirname is the test dir
-    console.log(sourceFileName);
+
+  test('resolves full component references', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/api-x/api.yaml'); // __dirname is the test dir
+    const resolver = new ApiRefResolver(sourceFileName);
+    resolver
+      .resolve()
+      .then((result) => {
+        const resolved = result.api;
+        const components = resolved['components'] as any;
+        const schemaNames = ['percent', 'range'];
+        schemaNames.forEach((schemaName) => {
+          const schema = components.schemas[schemaName];
+          expect(schema).toBeDefined();
+          expect(schema.$ref).toBeFalsy();
+          expect(schema.title).toBeTruthy();
+          expect(schema.type).toBeTruthy();
+          expect(schema.description).toBeTruthy();
+        });
+        done();
+      })
+      .catch((ex) => {
+        done(ex);
+      });
+    });
+
+  test('resolves multi-file OpenAPI document', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/api-a/api.yaml'); // __dirname is the test dir
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA});
     expect(original).toBeDefined();
     const options = {verbose: true};
@@ -51,14 +75,15 @@ describe('resolver test suite', () => {
       });
   });
 
-  xit('resolve components from multi-file OpenAPI document', (done) => {
-    const sourceFileName = 'data/api-b/api.yaml';
+  xit('resolves components from multi-file OpenAPI document', (done) => {
+    const sourceFileName = path.join(__dirname,'data/api-b/api.yaml');
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve()
       .then((result) => {
-        const resolved = result.api;
-        const components = resolved.components as any;
+        const resolved = result.api as any;
+        expect(resolved).toBeDefined();
+        const components = resolved.components;
         const schemas = Object.keys(components.schemas);
         schemas.forEach((schemaName) => {
           const schema = components.schemas[schemaName];
@@ -80,7 +105,7 @@ describe('resolver test suite', () => {
           expect(parameter).toBeDefined();
           expect(parameter.$ref).toBeFalsy();
         });
-        const post = resolved.paths['/thing'].post;
+        const post = resolved['paths']['/thing'].post;
         expect(post).toBeDefined();
         const requestBodySchema = post.requestBody.content['application/json'].schema;
         expect(requestBodySchema).toBeDefined();
@@ -95,4 +120,11 @@ describe('resolver test suite', () => {
         done(ex);
       });
   });
+
+  xit('is intentionally disabled', (done) => {
+    // so I can change other xit to `test` without causing
+    // eslint failures for unused xit import
+    done();
+  });
+  
 });

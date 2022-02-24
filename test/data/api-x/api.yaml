@@ -1,0 +1,6 @@
+components:
+  schemas:
+    percent:
+      $ref: ../schemas/percentage.yaml
+    range:
+      $ref: ../schemas/percentageRange.yaml

@@ -1,69 +1,98 @@
-import { Ancestry } from './Ancestry';
-import { JsonKeys } from './JsonKeys';
+import { JsonNavigation, JsonItem } from './JsonNavigation';
 
 /**
  * Recursively walk a JSON object and invoke a callback function
  * on each `{ "$ref" : "path" }` object found
  */
 
-// eslint-disable-next-line no-unused-vars
-export type RefVisitor = (node: Node, path: JsonKeys, ancestry: Ancestry) => Promise<Node>;
-
 /**
- * A container: a JSON object or array - a container node
+ * A container: a JSON object or array - a JSON container node
  */
 export type Node = object | [];
 
 /**
- * Walk a JSON object or array and apply f when a $ref is found
- * @param node a node in the OpenAPI document
- * @param path the path to this node, such as `[ 'components', 'schemas', 'mySchema', 'allOf', 0 ]`
- * @param ancestry the parent objects, one per path element.
- * @param f the function to call on found reference objects
- * @return the modified (annotated) node
+ * Represents a JSON Reference object, such as
+ * `{"$ref": "#/components/schemas/problemResponse" }`
  */
-export function walkObject(node: object, path: JsonKeys, ancestry: Ancestry, f: RefVisitor): object {
-  if (isRef(node)) {
-    f(node, path, ancestry);
-  }
-  const modNode: object = node;
-  const keys = [...Object.keys(node)]; // make copy since this code may re-enter objects
-  keys.forEach((key) => {
-    let val = node[key];
-    if (val !== null && val instanceof Array) {
-      val = walkArray(val as [], path.with(key), ancestry.with(modNode), f);
-    } else if (val !== null && typeof val === 'object') {
-      val = walkObject(val, path.with(key), ancestry.with(modNode), f);
-    }
-    node[key] = val;
-  });
-  return modNode;
+export interface RefObject {
+  $ref: string;
 }
+
+/**
+ * Function signature for the visitRefObjects callback
+ */
+export type RefVisitor = (node: RefObject, nav: JsonNavigation) => Promise<JsonItem>;
+
+/**
+ * Function signature for the walkObject callback
+ */
+export type ObjectVisitor = (node: object, nav: JsonNavigation) => Promise<JsonItem>;
 
 function isRef(node: Node): boolean {
   return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof node['$ref'] === 'string';
 }
 
+function isResolved(node: Node): boolean {
+  // this depends on the tag being added in ApiRefResolver
+  return node !== null && typeof node === 'object' && node.hasOwnProperty('x__resolved__');
+}
+
 /**
- * Walk an array and apply f to any item that is a ref object
- * @param a an array node in the OpenAPI document
- * @param path the path to this node.
- * @param ancestry the parent objects, one per path element.
- * @param f the function to call on found reference objects
+ * Walk a JSON object and apply `refCallback` when a JSON `{$ref: url }` is found
+ * @param node a node in the OpenAPI document
+ * @param refCallback the function to call on JSON `$ref` objects
+ * @param nav tracks where we are in the original document
  * @return the modified (annotated) node
  */
-function walkArray(a: [], path: JsonKeys, ancestry: Ancestry, f): [] {
-  for (let index = 0; index < a.length; index = index + 1) {
-    const val = a[index] as Node;
-    const itemPath = path.with(index);
-    const itemAncestry = ancestry.with(a);
-    if (val !== null && typeof val === 'object') {
-      const modified = walkObject(val, itemPath, itemAncestry, f) as object;
-      (a as Node[])[index] = modified;
-    } else if (val !== null && val instanceof Array) {
-      const modified = walkArray(val as [], itemPath, itemAncestry, f) as [];
-      (a as Node[])[index] = modified;
+export async function visitRefObjects(node: object, refCallback: RefVisitor, nav?: JsonNavigation): Promise<JsonItem> {
+  const objectVisitor = async (node: object, nav: JsonNavigation): Promise<JsonItem> => {
+    if (isRef(node)) {
+      if (isResolved(node)) {
+        return node;
+      }
+      return await refCallback(node as RefObject, nav);
+    } 
+    return node;
+  };
+  return walkObject(node, objectVisitor, nav);
+}
+
+/**
+ * Walk a JSON object or array and apply objectCallback when a JSON object is found
+ * @param node a node in the OpenAPI document
+ * @param objectCallback the function to call on JSON objects
+ * @param nav tracks where we are in the original document
+ * @return the modified (annotated) node
+ */
+export async function walkObject(node: object, objectCallback: ObjectVisitor, nav?: JsonNavigation): Promise<JsonItem> {
+  return walkObj(node, nav || new JsonNavigation(node));
+
+  async function walkObj(node: object, nav: JsonNavigation): Promise<JsonItem> {
+    const object = objectCallback(node, nav);
+    if (object !== null && typeof object === 'object') {
+      const keys = [...Object.keys(node)]; // make copy since this code may re-enter objects
+      for (const key of keys) {
+        const val = node[key];
+        if (Array.isArray(val)) {
+          node[key] = await walkArray(val as [], nav.with(key));
+        } else if (val !== null && typeof val === 'object') {
+          node[key] = await walkObj(val, nav.with(key));
+        }
+      }
     }
+    return object;
   }
-  return a;
+
+  async function walkArray(a: [], nav: JsonNavigation): Promise<[]> {
+    const array = a as Node;
+    for (let index = 0; index < a.length; index = index + 1) {
+      const val = array[index] as Node;
+      if (val !== null && typeof val === 'object') {
+        array[index] = (await walkObj(val, nav.with(index))) as object;
+      } else if (Array.isArray(val)) {
+        array[index] = (await walkArray(val as [], nav.with(index))) as [];
+      }
+    }
+    return a;
+  }
 }

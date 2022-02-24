@@ -1,4 +1,4 @@
-openapi: 3.0.2
+openapi: 3.1.0
 info:
   title: Common API Components
   description: 'API components (schemas, parameters, responses) shared across other APIs.'
@@ -9,7 +9,25 @@ servers:
 tags:
   - name: A
     description: A
-paths: {}
+paths:
+
+  /thing:
+    get:
+      operationId: getThing
+      description: Get a thing.
+      tags:
+        - A
+      security:
+        - apiKey: []
+      responses:
+        '200':
+          description: OK
+          content:  
+            application/json:
+              schema:
+                $ref: '#/components/schemas/thing'
+        '404':
+          $ref: "#/components/responses/404"
 components:
   parameters:
     idempotencyKeyHeaderParam:
@@ -63,6 +81,43 @@ components:
             $ref: '#/components/schemas/problemResponse'
 
   schemas:
+
+    thing:
+      title: Thing
+      description: A Thing!
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/base"
+        - type: object
+          required:
+            - thing1
+            - thing2
+          properties:
+            thing1:
+              description: Thing 1
+              type: string
+              example: Thing 1
+            thing2:
+              description: Thing 2
+              type: string
+              example: Thing 2
+            percentage:
+              description: >-
+                (A full-file reference. The entire file is inserted here.)
+              $ref: '../schemas/percentage.yaml'
+            range:
+              description: >-
+                Another full-file reference. However, the percentage.yaml
+                files that percentageRange refers to will
+                be resolved to the above inlined schema at
+                /components/schemas/thing/allOf/1/properties/percentage
+                i.e. low and high will use the schema ref
+                `{ $ref: '#/components/schemas/thing/allOf/1/properties/percentage' }`
+              $ref: '../schemas/percentageRange.yaml'
+      example:
+        profile_url: 'https://api.apiture.com/schemas/b/thing/0.2.0/profile.json'
+        thing1: Thing 1
+        thing2: Thing 2
 
     apiProblem:
       title: API Problem
@@ -146,7 +201,7 @@ components:
       required:
         - profile_url
       properties:
-        profileUri:
+        profile_url:
           description: 'The URL of a resource profile which describes the representation.'
           type: string
           format: uri

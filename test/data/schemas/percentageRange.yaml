@@ -1,0 +1,15 @@
+title: Percentage Range
+description: A range of percentages
+type: object
+required:
+  - low
+  - high
+properties:
+  low:
+    description: The lower-bound of the percentage range.
+    # Full object reference (a inline JSON schema):
+    $ref: 'percentage.yaml'
+  high:
+    description: The upper-bound of the percentage range.
+    # Full object reference (a inline JSON schema):
+    $ref: 'percentage.yaml'
