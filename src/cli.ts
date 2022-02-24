@@ -3,6 +3,8 @@
 import * as fs from 'fs';
 
 import { Command } from 'commander';
+import * as mkdirs from 'mkdirs';
+import * as path from 'path';
 import * as yaml from 'js-yaml';
 
 import { version } from '../package.json';
@@ -28,16 +30,18 @@ async function main(args: string[] = process.argv) {
   options.verbose = opts.verbose;
   resolver
     .resolve(options)
-    .then( (resolved) => {
+    .then((resolved) => {
       if (outputFileName) {
+        const outDir = path.dirname(outputFileName);
+        mkdirs(outDir);
         fs.writeFileSync(outputFileName, yaml.dump(resolved.api), 'utf8');
       } else if (opts.format === 'json') {
-          console.log(JSON.stringify(resolved.api, null, 2));
-        } else {
-          console.log(yaml.dump(resolved.api));
-        }
+        console.log(JSON.stringify(resolved.api, null, 2));
+      } else {
+        console.log(yaml.dump(resolved.api));
+      }
     })
-    .catch(function (ex) {
+    .catch((ex) => {
       console.error(ex.message);
       process.exit(1);
     });

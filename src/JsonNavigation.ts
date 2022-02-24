@@ -40,6 +40,7 @@ export type JsonItem = object | [] | string | boolean | number | null;
 
 export class JsonNavigation {
   private document: JsonNode;
+
   private keys: JsonKey[];
 
   constructor(document: JsonNode, ...keys: JsonKey[]) {
@@ -59,13 +60,14 @@ export class JsonNavigation {
    * @returns the item at the nested object specified by `fragment`, or `undefined` if
    * `fragment` is '' (or is falsy).
    */
-  public itemAtFragment(fragment: string): JsonItem | undefined  {
+  public itemAtFragment(fragment: string): JsonItem | undefined {
     if (!fragment) {
       return undefined;
     }
     const noHash = fragment.substring(1);
     return jsonPointer(this.document, noHash);
   }
+
   /**
    * Return the document item at the JSON Pointer fragment
    * @param document A JSON object or array
@@ -81,13 +83,12 @@ export class JsonNavigation {
    * Convert the current instance's navigation path to a JSON Pointer URL fragment.
    * For example, if the current path is `[ 'paths', '/things', 'post', 'responses', 1]`,
    * return `#/paths/~1things/post/responses/1`
-   * @return a stringified URL fragment path 
+   * @return a stringified URL fragment path
    */
   public asFragment(): string {
     const fragment = jsonPointer.compile(this.keys);
     return `#${fragment}`;
   }
-
 
   /**
    * Convert an array of keys to a JSON Pointer URL fragment.
@@ -96,7 +97,7 @@ export class JsonNavigation {
    * @param keys an array of JSON keys
    * @return a stringified URL fragment path
    */
-   public static asFragment(keys: JsonKey[], withHash = false): string {
+  public static asFragment(keys: JsonKey[], withHash = false): string {
     const fragment = jsonPointer.compile(keys);
     return withHash ? `#${fragment}` : fragment;
   }
@@ -111,9 +112,8 @@ export class JsonNavigation {
     const keys = jsonPointer.parse(fragment.substring(1)).map((key) => {
       if (/^\d+$/.exec(key)) {
         return parseInt(key);
-      } else {
-        return key;
       }
+      return key;
     });
     return keys as JsonKey[];
   }

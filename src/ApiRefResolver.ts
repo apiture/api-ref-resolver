@@ -2,7 +2,7 @@
 import { strict as assert } from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL, URL } from 'url';
 
 import * as bl from 'bl';
 import * as yaml from 'js-yaml';
@@ -40,7 +40,7 @@ export interface ApiRefOptions {
    * throw an error. The default is `rename`. The result includes a list
    * of renamed components.
    */
-  conflictStrategy?: 'error' | 'rename';
+  conflictStrategy?: 'error' | 'rename' | 'ignore';
 
   /**
    * Output format for stdout; default is `yaml`
@@ -59,6 +59,11 @@ export interface ApiRefResolved {
  * objects with the object referenced at the `uri`.
  */
 export class ApiRefResolver {
+  /**
+   * A `RegExp` which only matches an API component relative-uri fragment `#/components/<section>/<componentName>`
+   */
+  static readonly COMPONENT_REGEXP = /^#\/components\/\w+\/[^/]+$/;
+
   /** The URL of the current API being processed */
   private url: URL;
 
@@ -67,33 +72,58 @@ export class ApiRefResolver {
   private options: ApiRefOptions;
 
   private apiDocument: ApiObject;
+
   /**
    * Maps normalized path names or URLs to API document objects
    */
   private urlToApiObjectMap: { [path: string]: ApiObject };
+
+  private alreadyRewritten: { 
+    path: { [path: string]: boolean },
+    fragment:  { [path: string]: boolean } 
+  };
 
   /**
    * Maps $ref strings to their resolved $ref strings
    */
   private resolvedRefToRefMap: { [path: string]: string };
 
+  /**
+   * Date-time when we resolved this API
+   */
   private dateTime: string;
 
+  /**
+   * Tracks whether the resolve function changed anything
+   */
   private changed;
 
+  /**
+   * Temporary marker added to object to prevent re-resolving them.
+   */
+  static readonly TEMPORARY_MARKER = 'x__resolved__';
+
+  /**
+   * Build a new `$ref` resolver
+   * @param uri The location of the API document: a file name or URL
+   * @param apiDocument Optional document object. If omitted, the
+   * {@link resolve()} function will read it.
+   */
   public constructor(uri: string | URL, apiDocument?: ApiObject) {
     this.resolvedRefToRefMap = {};
     this.urlToApiObjectMap = {};
     this.dateTime = new Date().toISOString();
+    this.alreadyRewritten = { path: {}, fragment: {}};
     if (typeof uri === 'string') {
       if (/^\w+:/.exec(uri)) {
         this.url = new URL(uri);
       } else {
-        this.url = pathToFileURL(path.resolve(__dirname, uri));
+        this.url = pathToFileURL(path.resolve(process.cwd(), uri));
       }
     } else {
       this.url = uri;
     }
+
     if (apiDocument) {
       this.apiDocument = apiDocument;
     }
@@ -109,9 +139,7 @@ export class ApiRefResolver {
     }
     this.urlToApiObjectMap[this.url.href] = this.apiDocument;
 
-    const refVisitor: RefVisitor = (node: RefObject, nav: JsonNavigation) => {
-      return this.refResolvingVisitor(node, nav);
-    };
+    const refVisitor: RefVisitor = (node: RefObject, nav: JsonNavigation) => this.refResolvingVisitor(node, nav);
 
     this.changed = true;
     while (this.changed) {
@@ -129,8 +157,8 @@ export class ApiRefResolver {
    */
   async cleanup(resolved: ApiObject): Promise<object> {
     return (await walkObject(resolved, async (node: object) => {
-      if (node.hasOwnProperty('x__resolved__')) {
-        delete node['x__resolved__'];
+      if (node.hasOwnProperty(ApiRefResolver.TEMPORARY_MARKER)) {
+        delete node[ApiRefResolver.TEMPORARY_MARKER];
       }
       return node;
     })) as object;
@@ -200,18 +228,29 @@ export class ApiRefResolver {
     const url = typeof uri === 'string' ? pathToFileURL(uri) : uri;
     const urlKey = ApiRefResolver.urlNonFragment(url);
     const fragment = ApiRefResolver.urlFragment(url);
-    let api = this.urlToApiObjectMap[url.href];
+    let api = this.urlToApiObjectMap[urlKey.href];
     if (api) {
       const item = fragment ? new JsonNavigation(api).itemAtFragment(fragment) : undefined;
-      return { url, api, fragment: fragment, item };
+      return {
+        url,
+        api,
+        fragment,
+        item,
+      };
     }
     const text = url.protocol === 'file:' ? await this.readFromFile(url) : await this.readFromUrl(url);
     api = yaml.load(text, { filename: url.href, schema: yaml.JSON_SCHEMA });
     // Cache the api object by the URL
     this.urlToApiObjectMap[urlKey.href] = api;
     const item = fragment ? new JsonNavigation(api).itemAtFragment(fragment) : undefined;
-    return { url: urlKey, api, fragment, item };
+    return {
+      url: urlKey,
+      api,
+      fragment,
+      item,
+    };
   }
+
   static urlNonFragment(url: URL) {
     const urlNonFragment = new URL(url.href);
     urlNonFragment.hash = '';
@@ -226,14 +265,14 @@ export class ApiRefResolver {
    * @param ancestry the chain of ancestor objects.
    */
   private async refResolvingVisitor(refObject: RefObject, nav: JsonNavigation): Promise<JsonItem> {
-    const ref = refObject['$ref'] as string;
+    const ref = refObject.$ref as string;
     // console.log(`seen $ref ${ref} at path ${nav.toJsonPointer()}`);
     if (ref.startsWith('#')) {
       return refObject;
     }
     const replacementRef = this.replacementForRef(ref);
     if (replacementRef) {
-      refObject['$ref'] = replacementRef;
+      refObject.$ref = replacementRef;
       return refObject;
     }
     // below process*Replacement operations will inline content
@@ -243,11 +282,11 @@ export class ApiRefResolver {
     const fragment = ApiRefResolver.urlFragment(url);
     if (!fragment) {
       return await this.processFullReplacement(url, refObject, nav);
-    } else if (this.componentRegex().exec(fragment)) {
-      return await this.processComponentReplacement(url, refObject, nav);
-    } else {
-      return await this.processOtherReplacement(url, refObject, ref, nav);
     }
+    if (ApiRefResolver.COMPONENT_REGEXP.exec(fragment)) {
+      return await this.processComponentReplacement(url, refObject, nav);
+    }
+    return await this.processOtherReplacement(url, refObject, ref, nav);
   }
 
   /**
@@ -278,39 +317,51 @@ export class ApiRefResolver {
   }
 
   /**
-   * Process a JSON API document, updating all of its non-local `$ref` objects
-   * be relative to the document URL where we read the document.
+   * Process a JSON API document, updating all of its `$ref` objects
+   * to be relative to the document URL where we read the document.
    * For example, consider `/path/to/apis/api-a/api.yaml` which has a `{ $ref: "../models/b.yaml#/components/schemas/thing" }
    * and `b.yaml` contains `{ $ref: "./c.yaml#/components/schemas/anotherThing" }`,
    * when we resolve the $ref in `a.yaml` and load `../models/b.yaml`
    * the reference from `b.yaml` must be changed
    * to `../c.yaml#/components/schemas/anotherThing` so that it is a correct `$ref` in the
-   * context of `a.yaml`.
+   * context of `a.yaml`. Similarly, local refs such as `"#/components/schemas/thing"`
+   * are rewritten as `"../c.yaml#/components/schemas/thing"`
+   * TODO: Presently, this uses absolute URLs, but for files the href should be relative to the current file.
    * @param documentUrl the normalized URL of the  document being scanned, such as `'file://path/to/apis/models/b.yaml'`
    * in the example.
    * @param api An API object that was read from `url`
    */
-  private async rewriteExternalRefs(documentUrl: URL, api: ApiObject) {
+  private async rewriteRefPaths(documentUrl: URL, api: ApiObject) {
     const nonFragmentUrl = ApiRefResolver.urlNonFragment(documentUrl);
+    if (this.areRefsAlreadyRewritten(nonFragmentUrl, 'path')) {
+      return;
+    }
     const refRewriteVisitor = async (node: RefObject): Promise<Node> => {
-      // TODO: fix this to continue to use relative URLs, not absolute URLs.
+      // TODO: fix this to use relative URLs, not absolute URLs.
       const refNormalizedUrl = new URL(node.$ref, nonFragmentUrl);
       node.$ref = refNormalizedUrl.href;
       return node;
     };
     await visitRefObjects(api, refRewriteVisitor);
+    this.markRefsAlreadyRewritten(nonFragmentUrl, 'path')
   }
 
   /**
    * Process a JSON document, updating all of its '#/....' local `$ref` objects  to
    * the location it was embedded in the target ApAPI document.
+   * @param documentUrl the normalized URL of the  document being scanned, such as `'file://path/to/apis/models/b.yaml'`
+   * in the example.
    * @param api A JSON object that was read from a URL or file
    * @param nav Points to where we are in the containing API document.
    * We extract a fragment from this and insert that as a prefix in the
    * local REF urls. For example, if `nav` is at `/paths/~1health/get`
    * we will insert `/paths/~1health/get` before any `#/...` `$ref` objects.
    */
-  private async rewriteLocalRefsWithPrefix(api: ApiObject, nav: JsonNavigation) {
+  private async rewriteRefFragments(documentUrl: URL, api: ApiObject, nav: JsonNavigation) {
+    const nonFragmentUrl = ApiRefResolver.urlNonFragment(documentUrl);
+    if (this.areRefsAlreadyRewritten(nonFragmentUrl, 'fragment')) {
+      return;
+    }
     const prefix = nav.asFragment();
     const refRewriteVisitor = async (node: RefObject): Promise<Node> => {
       const ref = node.$ref;
@@ -320,14 +371,33 @@ export class ApiRefResolver {
       return node;
     };
     await visitRefObjects(api, refRewriteVisitor);
+    this.markRefsAlreadyRewritten(nonFragmentUrl, 'fragment')
   }
 
   /**
-   * @returns A new `RegExp` which only matches an API component relative-uri fragment `#/components/<section>/<componentName>`
-   * We create a new RegEx each time to allow safe re-entrant and RegEx match state.
+   * Track whether we have already rewritten all the `$ref` objects in an API document
+   * by its URL.
+   * @param normalizedApiDocUrl the (normalized) URL of the API document
+   * @param what which type of update to track: `path` for {@link rewriteRefPaths} or `fragment` for {@link rewriteRefFragments}
+   * @returns `false` if we have not rewritten then.
    */
-  private componentRegex() {
-    return /^#\/components\/\w+\/[^/]+$/;
+  private areRefsAlreadyRewritten(normalizedApiDocUrl: URL, what: 'path' | 'fragment'): boolean {
+    const map = this.alreadyRewritten[what];
+    const key = normalizedApiDocUrl.href;
+    const alreadyRewritten = !!map[key];
+    return alreadyRewritten;
+  }
+
+  /**
+   * Track that we have already rewritten all the `$ref` objects in an API document
+   * by its URL.
+   * @param normalizedApiDocUrl the (normalized) URL of the API document
+   * @param what which type of update to track: `path` for {@link rewriteRefPaths} or `fragment` for {@link rewriteRefFragments}
+   */
+   private markRefsAlreadyRewritten(normalizedApiDocUrl: URL, what: 'path' | 'fragment') {
+    const map = this.alreadyRewritten[what];
+    const key = normalizedApiDocUrl.href;
+    map[key] = true;
   }
 
   /**
@@ -337,20 +407,31 @@ export class ApiRefResolver {
    *   * if the policy is `rename`, change the name by adding a unique suffix
    * Also create the components object and components section (componentKeys[1])
    * object if they do not exist on `this.apiObject`.
+   * @param refObject the current reference object
    * @param componentKeys
    * @param urlNoFragment
    * @returns
    */
-  private checkComponentConflict(componentKeys: JsonKey[], urlNoFragment: URL) {
+  private checkComponentConflict(refObject: RefObject, componentKeys: JsonKey[], urlNoFragment: URL) {
     assert(componentKeys[0] === 'components');
     const existing = this.apiDocument?.[componentKeys[0]]?.[componentKeys[1]]?.[componentKeys[2]];
     if (!existing) {
       return false;
     }
+    if (existing === refObject) {
+      // The component is defined by a ref and we're processing it!
+      return false;
+    }
     const resolvedFrom = existing['x-resolved-from'];
     const sameResolution = resolvedFrom === urlNoFragment.href;
     if (!sameResolution && this.options?.conflictStrategy === 'error') {
-      throw new Error(`Cannot embed component `);
+      throw new Error('Cannot embed component ');
+    }
+    if (this.options?.conflictStrategy === 'ignore') {
+      console.error(
+        `Component conflict ignored. ${componentKeys[2]} found at both ${resolvedFrom} and ${urlNoFragment.href}`,
+      );
+      return false;
     }
     if (!this.apiDocument['components']) {
       this.apiDocument['components'] = {};
@@ -358,19 +439,19 @@ export class ApiRefResolver {
     if (!this.apiDocument['components'][componentKeys[1]]) {
       this.apiDocument['components'][componentKeys[1]] = {};
     }
-    // Apply component rename conflict strategy.
+
     const components = this.apiDocument['components'];
     let candidateName = componentKeys[2];
     let suffix = 0;
     while (components.hasOwnProperty(candidateName)) {
-      suffix = suffix + 1;
+      suffix += 1;
       candidateName = `${componentKeys[2]}${suffix}`;
     }
     componentKeys[2] = candidateName;
   }
 
   /**
-   * Merged the `$ref` object with the API object read from the URL.
+   * Merge the `$ref` object with the API object read from the URL.
    * For example, when resolving the reference in the following:
    *
    * ```
@@ -393,9 +474,8 @@ export class ApiRefResolver {
    *
    * @param refObject a `$ref` object
    * @param apiDocument the API document read from the `url`
-   * @param url the URL where the API document was read from
    */
-  mergeRefObject(refObject: RefObject, apiDocument: ApiObject, url: URL) {
+  mergeRefObject(refObject: RefObject, apiDocument: JsonItem): ApiObject {
     if (typeof apiDocument !== 'object') {
       return;
     }
@@ -404,10 +484,7 @@ export class ApiRefResolver {
     delete refProperties.$ref;
     // matching properties from refProperties will override those from apiDocument:
     const merged = { ...apiDocument, ...refProperties };
-    // TODO: use options to define these tags
-    merged['x-resolved-from'] = url.href;
-    merged['x-resolved-at'] = this.dateTime;
-    merged['x__resolved__'] = true; // this is a flag for RefVisitor.visitRefObjects
+    return merged;
   }
 
   /**
@@ -487,7 +564,7 @@ export class ApiRefResolver {
   ): Promise<JsonItem> {
     assert(nav);
     assert(normalizedRefUrl.hash);
-    assert(this.componentRegex().exec(normalizedRefUrl.hash));
+    assert(ApiRefResolver.COMPONENT_REGEXP.exec(normalizedRefUrl.hash));
     const reference: string = normalizedRefUrl.href;
     const seen = this.replacementForRef(reference);
     if (seen) {
@@ -495,17 +572,19 @@ export class ApiRefResolver {
       return refObject;
     }
     const urlNoFragment = ApiRefResolver.urlNonFragment(normalizedRefUrl);
-    const { api, item } = await this.api(urlNoFragment);
+    const { api, item } = await this.api(normalizedRefUrl);
     const baseUrl = new URL(urlNoFragment.href, this.url);
-    await this.rewriteExternalRefs(baseUrl, api);
+    await this.rewriteRefPaths(baseUrl, api);
     let result: JsonItem = api;
     if (nav.isAtComponent()) {
       const componentKeys = JsonNavigation.asKeys(normalizedRefUrl.hash);
       const component = item;
-      this.checkComponentConflict(componentKeys, urlNoFragment); // may rename the component
-      this.apiDocument['components'][componentKeys[1]][componentKeys[2]] = component;
-      refObject.$ref = JsonNavigation.asFragment(componentKeys, true);
-      result = refObject;
+      this.checkComponentConflict(refObject, componentKeys, urlNoFragment); // may rename the component
+      const merged = this.mergeRefObject(refObject, component);
+      this.apiDocument[componentKeys[0]][componentKeys[1]][componentKeys[2]] = merged;
+      this.tag(item, normalizedRefUrl);
+      // walkObject will replace the refObject with the inlined object
+      result = item;
     } else {
       const componentKeys = JsonNavigation.asKeys(normalizedRefUrl.hash);
       const component = api?.[componentKeys[0]]?.[componentKeys[1]]?.[componentKeys[2]];
@@ -587,10 +666,11 @@ export class ApiRefResolver {
     // location of the current object from the target API document navigation
     const resolvedRef = nav.asFragment();
     this.rememberReplacementForRef(reference, resolvedRef);
-    await this.rewriteLocalRefsWithPrefix(api, nav);
-    await this.rewriteExternalRefs(normalizedRefUrl, api);
-    this.mergeRefObject(refObject, api, normalizedRefUrl);
-    return api;
+    await this.rewriteRefFragments(normalizedRefUrl, api, nav);
+    await this.rewriteRefPaths(normalizedRefUrl, api); // always call this after rewriteLocalRefsWithPrefix
+    const merged = this.mergeRefObject(refObject, api);
+    this.tag(merged, normalizedRefUrl);
+    return merged;
   }
 
   /**
@@ -665,7 +745,7 @@ export class ApiRefResolver {
     nav: JsonNavigation,
   ): Promise<JsonItem> {
     assert(normalizedRefUrl.hash);
-    assert(!this.componentRegex().exec(normalizedRefUrl.hash));
+    assert(!ApiRefResolver.COMPONENT_REGEXP.exec(normalizedRefUrl.hash));
     const seen = this.replacementForRef(reference);
     if (seen) {
       refObject.$ref = seen;
@@ -674,11 +754,20 @@ export class ApiRefResolver {
     const { api, item } = await this.api(normalizedRefUrl);
     const urlNoFragment = ApiRefResolver.urlNonFragment(normalizedRefUrl);
     const baseUrl = new URL(urlNoFragment.href, this.url);
-    await this.rewriteExternalRefs(baseUrl, api);
-    await this.rewriteLocalRefsWithPrefix(api, nav);
+    await this.rewriteRefFragments(baseUrl, api, nav);
+    await this.rewriteRefPaths(baseUrl, api); // always call this after rewriteLocalRefsWithPrefix
     const resolvedRef = normalizedRefUrl.hash;
     this.rememberReplacementForRef(reference, resolvedRef);
-    // TODO: Add x-resolved-from tags to item
-    return item; 
+    this.tag(item, normalizedRefUrl);
+    const merged = this.mergeRefObject(refObject, item);
+    return merged;
+  }
+
+  tag(item: JsonItem, normalizedRefUrl: URL) {
+    if (item != null && typeof item === 'object') {
+      item['x-resolved-from'] = normalizedRefUrl.href;
+      item['x-resolved-at'] = this.dateTime;
+      item[ApiRefResolver.TEMPORARY_MARKER] = true; // temporary marker to be removed
+    }
   }
 }

@@ -5,10 +5,10 @@ import * as path from 'path';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {
-    describe, 
-    expect, 
-    test,
-    xit
+  describe,
+  expect,
+  test,
+  xit,
 } from '@jest/globals';
 import * as yaml from 'js-yaml';
 
@@ -18,7 +18,7 @@ describe('resolver test suite', () => {
   test('resolves single file results in same object', (done) => {
     const sourceFileName = path.join(__dirname, 'data/root.yaml');// __dirname is the test dir
     console.log(sourceFileName);
-    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA});
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve()
@@ -54,13 +54,13 @@ describe('resolver test suite', () => {
       .catch((ex) => {
         done(ex);
       });
-    });
+  });
 
   test('resolves multi-file OpenAPI document', (done) => {
     const sourceFileName = path.join(__dirname, 'data/api-a/api.yaml'); // __dirname is the test dir
-    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA});
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
     expect(original).toBeDefined();
-    const options = {verbose: true};
+    const options = { verbose: true };
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve(options)
@@ -76,7 +76,7 @@ describe('resolver test suite', () => {
   });
 
   xit('resolves components from multi-file OpenAPI document', (done) => {
-    const sourceFileName = path.join(__dirname,'data/api-b/api.yaml');
+    const sourceFileName = path.join(__dirname, 'data/api-b/api.yaml');
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve()
@@ -105,7 +105,7 @@ describe('resolver test suite', () => {
           expect(parameter).toBeDefined();
           expect(parameter.$ref).toBeFalsy();
         });
-        const post = resolved['paths']['/thing'].post;
+        const post = resolved.paths['/thing'].post;
         expect(post).toBeDefined();
         const requestBodySchema = post.requestBody.content['application/json'].schema;
         expect(requestBodySchema).toBeDefined();
@@ -126,5 +126,4 @@ describe('resolver test suite', () => {
     // eslint failures for unused xit import
     done();
   });
-  
 });

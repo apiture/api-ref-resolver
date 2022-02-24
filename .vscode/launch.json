@@ -34,6 +34,21 @@
             "outFiles": [
                 "${workspaceFolder}/lib/**/*.js"
             ]
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "ARR Unity banking accounts",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}/lib/src/cli.js",
+            "args" : ["-i", "apis/accounts/openapi.yaml", "-o", "apis/accounts/gen/openapi.yaml"],
+            "cwd": "/Users/david.biesack/dev/openapi/banking-api-def",
+            "stopOnEntry": false,
+            "outFiles": [
+                "${workspaceFolder}/lib/**/*.js"
+            ]
         }
     ]
 }

@@ -29,7 +29,7 @@ export type RefVisitor = (node: RefObject, nav: JsonNavigation) => Promise<JsonI
 export type ObjectVisitor = (node: object, nav: JsonNavigation) => Promise<JsonItem>;
 
 function isRef(node: Node): boolean {
-  return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof node['$ref'] === 'string';
+  return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof (node as RefObject).$ref === 'string';
 }
 
 function isResolved(node: Node): boolean {
@@ -51,7 +51,7 @@ export async function visitRefObjects(node: object, refCallback: RefVisitor, nav
         return node;
       }
       return await refCallback(node as RefObject, nav);
-    } 
+    }
     return node;
   };
   return walkObject(node, objectVisitor, nav);
@@ -67,16 +67,16 @@ export async function visitRefObjects(node: object, refCallback: RefVisitor, nav
 export async function walkObject(node: object, objectCallback: ObjectVisitor, nav?: JsonNavigation): Promise<JsonItem> {
   return walkObj(node, nav || new JsonNavigation(node));
 
-  async function walkObj(node: object, nav: JsonNavigation): Promise<JsonItem> {
-    const object = objectCallback(node, nav);
+  async function walkObj(node: object, location: JsonNavigation): Promise<JsonItem> {
+    const object = objectCallback(node, location);
     if (object !== null && typeof object === 'object') {
       const keys = [...Object.keys(node)]; // make copy since this code may re-enter objects
       for (const key of keys) {
         const val = node[key];
         if (Array.isArray(val)) {
-          node[key] = await walkArray(val as [], nav.with(key));
+          node[key] = await walkArray(val as [], location.with(key));
         } else if (val !== null && typeof val === 'object') {
-          node[key] = await walkObj(val, nav.with(key));
+          node[key] = await walkObj(val, location.with(key));
         }
       }
     }
@@ -85,7 +85,7 @@ export async function walkObject(node: object, objectCallback: ObjectVisitor, na
 
   async function walkArray(a: [], nav: JsonNavigation): Promise<[]> {
     const array = a as Node;
-    for (let index = 0; index < a.length; index = index + 1) {
+    for (let index = 0; index < a.length; index += 1) {
       const val = array[index] as Node;
       if (val !== null && typeof val === 'object') {
         array[index] = (await walkObj(val, nav.with(index))) as object;
