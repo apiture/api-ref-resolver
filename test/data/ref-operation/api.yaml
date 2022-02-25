@@ -1,0 +1,18 @@
+
+openapi: 3.1.0
+info:
+  title: Multi-file OpenAPI
+  description: 'API definition that references components from ../api-a/api.yaml'
+  version: 0.1.0
+  contact: {}
+servers:
+  - url: /ref-op
+tags:
+  - name: Health
+    description: B
+
+paths:
+  /health:
+    get:
+      $ref: '../root.yaml#/paths/~1health/get'
+  
