@@ -16,14 +16,14 @@ async function main(args: string[] = process.argv) {
   cli
     .version(version)
     .usage('[options]')
-    .option('-i, --input <input-file>', 'An openapi.yaml or asyncapi.yaml file name or URL. Defaults to "openapi.yaml"')
+    .option('-i, --input <input-file>', 'An openapi.yaml or asyncapi.yaml file name or URL. Defaults to "pi.yaml"')
     .option('-o, --output <output-file>', 'The output file, defaults to stdout if omitted')
     .option('-f, --format [yaml|json]', 'Output format for stdout if no --output option is used; default to yaml')
     .option('-v, --verbose', 'Verbose output')
     .parse(args);
   const opts = cli.opts();
-  const sourceFileName : string = opts.input || 'openApiObject.yaml';
-  const outputFileName :string = opts.output;
+  const sourceFileName : string = opts.input || 'api.yaml';
+  const outputFileName : string = opts.output;
 
   const resolver = new ApiRefResolver(sourceFileName);
   const options: ApiRefOptions = {};

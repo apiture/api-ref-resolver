@@ -61,7 +61,7 @@ export interface ApiRefOptions {
   outputFormat?: 'yaml' | 'json';
 }
 
-export interface ApiRefResolved {
+export interface ApiRefResolution {
   api: ApiObject;
   options: ApiRefOptions;
 }
@@ -142,7 +142,7 @@ export class ApiRefResolver {
     }
   }
 
-  async resolve(options?: ApiRefOptions): Promise<ApiRefResolved> {
+  async resolve(options?: ApiRefOptions): Promise<ApiRefResolution> {
     // this.urlProtocol = this.url.protocol;
     this.options = options || {};
 
@@ -624,7 +624,7 @@ export class ApiRefResolver {
   }
 
   /**
-   * Inline the content for a `{ $ref: "http://path/to/resource"}`
+   * Inline the content for a `{ $ref: "http://path/to/resource" }`
    * or `{ $ref: "../path/to/resource"}` where the entire
    * file contents are embedded at the place of the `$ref` object
    * indicated by the `nav` location. For example,

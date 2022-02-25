@@ -1,13 +1,71 @@
 # @apiture/api-ref-resolver
 
-## Purpose
-
 `api-ref-resolver` resolves multi-file API definition documents by replacing
 external `{$ref: "uri"}` [JSON Reference](https://datatracker.ietf.org/doc/html/draft-pbryan-zyp-json-ref-03)
-objects with the object referenced at the `uri`. The `uri`
-may be a file-path (or a URL) with an optional `#` [JSON Pointer fragment](https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-json-pointer-04). 
-This tool does not enforce JSON Reference strictness; that is, the `$ref` member 
-may have siblings.
+objects with the object referenced at the `uri`.
+The `uri`
+may be a file-path or a URL with an optional `#` [JSON Pointer fragment](https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-json-pointer-04). 
+
+This tool does not enforce JSON Reference strictness; that is, the `$ref` member may have siblings.
+
+## Use
+
+### Command Line Interface
+
+```bash
+api-ref-resolver --input api.yaml --output resolved-api.yaml
+# arr is an alias command
+arr --input api.yaml --output resolved-api.yaml
+```
+
+Command line options:
+
+```text
+Usage: api-ref-resolver [options]
+
+Options:
+  -V, --version               output the version number
+  -i, --input <input-file>    An openapi.yaml or asyncapi.yaml file name or URL. Defaults to "api.yaml"
+  -o, --output <output-file>  The output file, defaults to stdout if omitted
+  -f, --format [yaml|json]    Output format for stdout if no --output option is used; default to yaml
+  -v, --verbose               Verbose output
+  -h, --help                  display help for command
+```
+
+### Node.js
+
+```javascript
+import { ApiRefResolver } from '@apiture/api-ref-resolver';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const sourceFileName = 'apy.yaml'
+const outputFileName = 'resolved-api.yaml'
+
+const resolver = new ApiRefResolver(sourceFileName);
+const options: ApiRefOptions = {
+  verbose: false,
+  conflictStrategy: 'error', # 'error' | 'rename' | 'ignore';
+  outputFormat: 'yaml'       # 'yaml' | 'json'
+};
+options.verbose = opts.verbose;
+resolver
+  .resolve(options)
+  .then((resolved) => {
+    if (outputFileName) {
+      const outDir = path.dirname(outputFileName);
+      mkdirs(outDir);
+      fs.writeFileSync(outputFileName, yaml.dump(resolved.api), 'utf8');
+    }
+  })
+  .catch((ex) => {
+    console.error(ex.message);
+    process.exit(1);
+  });
+
+## Notes
+
+
 
 Below, a `normalized-path` is defined as the simplified
 version of a file-path or URL, i.e. with `../` path elements collapsed.
