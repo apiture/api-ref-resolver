@@ -15,7 +15,7 @@ import * as yaml from 'js-yaml';
 import { ApiRefResolver } from '../src/ApiRefResolver';
 
 describe('resolver test suite', () => {
-  test('resolves single file results in same object', (done) => {
+  test('resolves file with no external $ref results in same object', (done) => {
     const sourceFileName = path.join(__dirname, 'data/root.yaml');// __dirname is the test dir
     console.log(sourceFileName);
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
@@ -56,8 +56,8 @@ describe('resolver test suite', () => {
       });
   });
 
-  test('resolves multi-file OpenAPI document', (done) => {
-    const sourceFileName = path.join(__dirname, 'data/api-a/api.yaml'); // __dirname is the test dir
+  test('resolves OpenAPI that $ref to operation', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/ref-operation/api.yaml'); // __dirname is the test dir
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
     expect(original).toBeDefined();
     const options = { verbose: true };
@@ -68,6 +68,9 @@ describe('resolver test suite', () => {
         expect(result).toBeDefined();
         const resolved = result.api;
         expect(resolved).toBeDefined();
+        const healthOp = resolved['paths']['/health']['get'];
+        expect(healthOp.$ref).toBeFalsy();
+        expect(healthOp.operationId).toEqual('apiHealth');
         done();
       })
       .catch((ex) => {
@@ -75,7 +78,7 @@ describe('resolver test suite', () => {
       });
   });
 
-  xit('resolves components from multi-file OpenAPI document', (done) => {
+  test('resolves components from OpenAPI document nested 3 $ref deep', (done) => {
     const sourceFileName = path.join(__dirname, 'data/api-b/api.yaml');
     const resolver = new ApiRefResolver(sourceFileName);
     resolver

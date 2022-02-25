@@ -28,7 +28,7 @@ export type RefVisitor = (node: RefObject, nav: JsonNavigation) => Promise<JsonI
  */
 export type ObjectVisitor = (node: object, nav: JsonNavigation) => Promise<JsonItem>;
 
-function isRef(node: Node): boolean {
+export function isRef(node: Node): boolean {
   return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof (node as RefObject).$ref === 'string';
 }
 

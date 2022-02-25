@@ -51,7 +51,3 @@ components:
   securitySchemes:
     apiKey:
       $ref: '../api-a/api.yaml#/components/securitySchemes/apiKey'
-
-  responses:
-
-  schemas:
