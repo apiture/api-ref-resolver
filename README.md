@@ -4,7 +4,16 @@
 external `{$ref: "uri"}` [JSON Reference](https://datatracker.ietf.org/doc/html/draft-pbryan-zyp-json-ref-03)
 objects with the object referenced at the `uri`.
 The `uri`
-may be a file-path or a URL with an optional `#` [JSON Pointer fragment](https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-json-pointer-04). 
+may be a file-path or a URL with an optional `#` [JSON Pointer fragment](https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-json-pointer-04).
+
+The tool handles chains of JSON references (i.e. a.yaml references components from b.yaml which references components from c.yaml) as
+well as direct or indirect cycles (component A references component B which references component A).
+
+Unlike other generic `$ref` resolvers ([1](https://github.com/Mermade/oas-kit/tree/main/packages/oas-resolver), [2](https://www.npmjs.com/package/@stoplight/json-ref-resolver), [3](https://github.com/APIDevTools/json-schema-ref-parser)),
+`api-ref-resolver` treats component references specially. It understands reusable `components/section/componentName` objects at the top-level of an API definition, such as `components/schemas/schemaName`, and attempts to
+maintain those component structures; see [Notes](#notes) below.
+Otherwise, it is specification agnostic and works with either
+[OpenAPI](https://www.openapis.org/) specification or [AsyncAPI](https://www.asyncapi.com/) specification.
 
 This tool does not enforce JSON Reference strictness; that is, the `$ref` member may have siblings.
 

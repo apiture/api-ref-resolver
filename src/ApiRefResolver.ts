@@ -155,9 +155,14 @@ export class ApiRefResolver {
     const refVisitor: RefVisitor = (node: RefObject, nav: JsonNavigation) => this.refResolvingVisitor(node, nav);
 
     this.changed = true;
+    let pass = 0;
     while (this.changed) {
+      pass = pass + 1;
       this.changed = false;
       this.apiDocument = (await visitRefObjects(this.apiDocument, refVisitor)) as ApiObject;
+      if (this.changed) {
+      this.note(`Pass ${pass} of resolve() resulted in changed $ref. Starting next pass.`);
+      }
     }
     this.apiDocument = await this.cleanup(this.apiDocument);
     return { api: this.apiDocument, options: this.options };
@@ -200,6 +205,7 @@ export class ApiRefResolver {
       !this.resolvedRefToRefMap[reference],
       `ref ${reference} already has a replacement, ${this.resolvedRefToRefMap[reference]}`,
     );
+    this.note(`Replace $ref URL ${reference} with ${replacementRef}`)
     this.resolvedRefToRefMap[reference] = replacementRef;
   }
 
@@ -255,6 +261,7 @@ export class ApiRefResolver {
     api = yaml.load(text, { filename: url.href, schema: yaml.JSON_SCHEMA });
     // Cache the api object by the URL
     this.urlToApiObjectMap[urlKey.href] = api;
+    this.note(`loaded API document from ${url.href}`);
     const item = fragment ? new JsonNavigation(api).itemAtFragment(fragment) : undefined;
     return {
       url: urlKey,
@@ -262,6 +269,16 @@ export class ApiRefResolver {
       fragment,
       item,
     };
+  }
+
+  /**
+   * Log a message if this.options.verbose is true
+   * @param message message text
+   */
+  note(message: string) {
+    if (this.options.verbose) {
+      console.log(`api-ref-resolver: ${message}`);
+    }
   }
 
   static urlNonFragment(url: URL) {
@@ -420,8 +437,8 @@ export class ApiRefResolver {
    * Also create the components object and components section (componentKeys[1])
    * object if they do not exist on `this.apiObject`.
    * @param refObject the current reference object
-   * @param componentKeys
-   * @param urlNoFragment
+   * @param componentKeys the JSON keys to the component, [components, sectionName, componentName]
+   * @param urlNoFragment URL of the document the component came from
    * @returns component location 
    */
   private checkComponentConflict(refObject: RefObject, componentKeys: JsonKey[], urlNoFragment: URL) : ComponentLocation {
@@ -447,23 +464,27 @@ export class ApiRefResolver {
     }
     const resolvedFrom = existing['x-resolved-from'];
     const sameResolution = resolvedFrom === urlNoFragment.href;
+
     if (!sameResolution && this.options?.conflictStrategy === 'error') {
       throw new Error('Cannot embed component ');
     }
+
     if (this.options?.conflictStrategy === 'ignore') {
-      console.error(
-        `Component conflict ignored. ${componentKeys[2]} found at both ${resolvedFrom} and ${urlNoFragment.href}`,
+      this.note(
+        `Component conflict ignored. ${componentName} found at both ${resolvedFrom} and ${urlNoFragment.href}`,
       );
       return {section, sectionName, componentName};
     }
 
-    let candidateName = componentKeys[2] as string;
+    let candidateName = componentName;
     let suffix = 0;
     while (components.hasOwnProperty(candidateName)) {
       suffix += 1;
-      candidateName = `${componentKeys[2]}${suffix}`;
+      candidateName = `${componentName}${suffix}`;
     }
     componentKeys[2] = candidateName;
+
+    this.note(`Renamed components.${sectionName}.${componentName} from ${urlNoFragment.href} as ${candidateName}`);
     return {section, sectionName, componentName: candidateName};
   }
 
@@ -599,7 +620,7 @@ export class ApiRefResolver {
     // location of the current object from the target API document navigation
     const resolvedRef = nav.asFragment();
     this.rememberReplacementForRef(reference, resolvedRef);
-    const { section, componentName } = this.checkComponentConflict(refObject, componentKeys, urlNoFragment); // may rename the component
+    const { section, sectionName, componentName } = this.checkComponentConflict(refObject, componentKeys, urlNoFragment); // may rename the component
     if (nav.isAtComponent()) {
       // for example, a ref in the components section, such as:
       // components:
@@ -618,6 +639,7 @@ export class ApiRefResolver {
     } else {
       // the $ref was not at a component. Replace the ref with $ref of the new component.
       section[componentName] = item as object;
+      this.note(`Injected components.${sectionName}.${componentName}`);
       refObject.$ref = JsonNavigation.asFragment(componentKeys, true);
       return refObject;
     }
