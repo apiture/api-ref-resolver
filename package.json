@@ -12,7 +12,7 @@
     "compile": "npx tsc",
     "test": "npx jest test",
     "lint": "npx eslint --fix src test --ext .ts",
-    "pipeline-lint": "npx eslint --fix src test --ext .t",
+    "pipeline-lint": "npx eslint --fix src test --ext .tx",
     "clean": "rm -rf lib"
   },
   "repository": {
