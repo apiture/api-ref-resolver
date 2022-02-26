@@ -60,7 +60,7 @@ describe('resolver test suite', () => {
     const sourceFileName = path.join(__dirname, 'data/ref-operation/api.yaml'); // __dirname is the test dir
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
     expect(original).toBeDefined();
-    const options = { verbose: true };
+    const options = { };
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve(options)
