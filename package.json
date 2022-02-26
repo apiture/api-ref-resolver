@@ -10,7 +10,8 @@
   "scripts": {
     "prepare": "npx tsc",
     "compile": "npx tsc",
-    "test": "npx jest test",
+    "test": "npx jest --collect-coverage test",
+    "coverage" : "true",
     "lint": "npx eslint --fix --ext .ts src test ",
     "pipeline-lint": "npx eslint --ext .ts src test",
     "clean": "rm -rf lib"

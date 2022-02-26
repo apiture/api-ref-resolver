@@ -17,7 +17,6 @@ import { ApiRefResolver } from '../src/ApiRefResolver';
 describe('resolver test suite', () => {
   test('resolves file with no external $ref results in same object', (done) => {
     const sourceFileName = path.join(__dirname, 'data/root.yaml');// __dirname is the test dir
-    console.log(sourceFileName);
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
