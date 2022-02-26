@@ -11,8 +11,8 @@
     "prepare": "npx tsc",
     "compile": "npx tsc",
     "test": "npx jest test",
-    "lint": "npx eslint --fix src test --ext .ts",
-    "pipeline-lint": "npx eslint --fix src test --ext .tx",
+    "lint": "npx eslint --fix --ext .ts src test ",
+    "pipeline-lint": "npx eslint --ext .ts src test",
     "clean": "rm -rf lib"
   },
   "repository": {
