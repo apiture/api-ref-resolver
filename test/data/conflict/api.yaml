@@ -1,0 +1,34 @@
+openapi: 3.1.0
+info:
+  title: Conflict
+  description: 'Test conflict strategy'
+  version: 0.1.0
+  contact: {}
+servers:
+  - url: /a
+tags:
+  - name: A
+    description: A
+paths:
+  /health:
+    # This will pull in a `health` schema which conflicts with the one below
+    $ref: '../root.yaml#/paths/~1health/get'
+components:
+  schemas:
+    health:
+      title: API Health (conflicts with schema in root)
+      description: >-
+        API Health response as per
+        [IEFT RFC draft-inadarei-api-health-check-06](https://datatracker.ietf.org/doc/html/draft-inadarei-api-health-check_)
+        (truncated).
+      type: object
+      properties:
+        status:
+          description: The API status.
+          type: string
+          enum:
+            - pass
+            - fail
+            - warn
+      example:
+        status: pass

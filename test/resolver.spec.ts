@@ -4,20 +4,18 @@ import * as path from 'path';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import {
-  describe,
-  expect,
-  test,
-  xit,
-} from '@jest/globals';
+import { describe, expect, test, xit } from '@jest/globals';
 import * as yaml from 'js-yaml';
 
-import { ApiRefResolver } from '../src/ApiRefResolver';
+import { ApiRefResolver, ApiRefOptions } from '../src/ApiRefResolver';
 
 describe('resolver test suite', () => {
   test('resolves file with no external $ref results in same object', (done) => {
-    const sourceFileName = path.join(__dirname, 'data/root.yaml');// __dirname is the test dir
-    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
+    const sourceFileName = path.join(__dirname, 'data/root.yaml'); // __dirname is the test dir
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
+      filename: sourceFileName,
+      schema: yaml.JSON_SCHEMA,
+    });
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve()
@@ -61,9 +59,12 @@ describe('resolver test suite', () => {
 
   test('resolves OpenAPI that $ref to operation', (done) => {
     const sourceFileName = path.join(__dirname, 'data/ref-operation/api.yaml'); // __dirname is the test dir
-    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), { filename: sourceFileName, schema: yaml.JSON_SCHEMA });
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
+      filename: sourceFileName,
+      schema: yaml.JSON_SCHEMA,
+    });
     expect(original).toBeDefined();
-    const options = { };
+    const options = {};
     const resolver = new ApiRefResolver(sourceFileName);
     resolver
       .resolve(options)
@@ -133,7 +134,6 @@ describe('resolver test suite', () => {
       });
   });
 
-
   test('resolves components from OpenAPI document nested 2 $ref deep', (done) => {
     const sourceFileName = path.join(__dirname, 'data/api-c/api.yaml');
     const resolver = new ApiRefResolver(sourceFileName);
@@ -193,5 +193,91 @@ describe('resolver test suite', () => {
     // so I can change other xit to `test` without causing
     // eslint failures for unused xit import
     done();
+  });
+});
+
+describe('resolver conflict policies', () => {
+
+  test('conflict ignore policy yields an exception', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/conflict/api.yaml'); // __dirname is the test dir
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
+      filename: sourceFileName,
+      schema: yaml.JSON_SCHEMA,
+    });
+    expect(original).toBeDefined();
+    const options: ApiRefOptions = { conflictStrategy: 'ignore' };
+    const resolver = new ApiRefResolver(sourceFileName);
+    resolver
+      .resolve(options)
+      .then((result) => {
+        const resolved = result.api as any;
+        const components = resolved.components;
+        const schemas = Object.keys(components.schemas).sort();
+        const expectedSchemas = ['health'].sort();
+        expect(schemas).toEqual(expectedSchemas);
+        schemas.forEach((schemaName) => {
+          const schema = components.schemas[schemaName];
+          expect(schema).toBeDefined();
+          expect(schema.$ref).toBeFalsy();
+          expect(schema.title).toBeTruthy();
+          expect(schema.type).toBeTruthy();
+          expect(schema.description).toBeTruthy();
+        });
+        done();
+      })
+      .catch((ex) => {
+        // fail() not defined?
+        expect(true).toBe(false);
+        done(ex);
+      });
+    });
+  
+  test('conflict rename policy renames component "health" to "health1"', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/conflict/api.yaml'); // __dirname is the test dir
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
+      filename: sourceFileName,
+      schema: yaml.JSON_SCHEMA,
+    });
+    expect(original).toBeDefined();
+    const options: ApiRefOptions = { conflictStrategy: 'rename' };
+    const resolver = new ApiRefResolver(sourceFileName);
+    resolver
+      .resolve(options)
+      .then((result) => {
+
+        expect(result).toBeDefined();
+        const resolved = result.api as any;
+        const components = resolved.components;
+        const schemas = Object.keys(components.schemas).sort();
+        const expectedSchemas = ['health', 'health1'].sort();
+        expect(schemas).toEqual(expectedSchemas);
+        schemas.forEach((schemaName) => {
+          const schema = components.schemas[schemaName];
+          expect(schema).toBeDefined();
+          expect(schema.$ref).toBeFalsy();
+          expect(schema.title).toBeTruthy();
+          expect(schema.type).toBeTruthy();
+          expect(schema.description).toBeTruthy();
+        });
+        done();
+      })
+      .catch((ex) => {
+        // fail() not defined?
+        expect(true).toBe(false);
+      });
+    });
+  
+  test('conflict error policy throws an exception', async () => {
+    const sourceFileName = path.join(__dirname, 'data/conflict/api.yaml'); // __dirname is the test dir
+    const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
+      filename: sourceFileName,
+      schema: yaml.JSON_SCHEMA,
+    });
+    expect(original).toBeDefined();
+    const options: ApiRefOptions = { conflictStrategy: 'error' };
+    const resolver = new ApiRefResolver(sourceFileName);
+    await expect(resolver.resolve(options))
+    .rejects
+    .toThrow('Cannot embed component components,schemas,health');
   });
 });
