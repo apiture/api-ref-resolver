@@ -1,6 +1,6 @@
 {
   "name": "@apiture/api-ref-resolver",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Tool to merge multiple OpenAPI or AsyncAPI documents that use JSON Reference links (`$ref`) to reference API definition elements across source files.",
   "main": "lib/src/index.js",
   "bin": {
@@ -11,7 +11,7 @@
     "prepare": "npx tsc",
     "compile": "npx tsc",
     "test": "npx jest --collect-coverage test",
-    "coverage" : "true",
+    "coverage": "true",
     "lint": "npx eslint --fix --ext .ts src test ",
     "pipeline-lint": "npx eslint --ext .ts src test",
     "clean": "rm -rf lib"

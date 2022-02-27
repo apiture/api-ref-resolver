@@ -17,6 +17,13 @@ Otherwise, it is specification agnostic and works with either
 
 This tool does not enforce JSON Reference strictness; that is, the `$ref` member may have siblings.
 
+## To Do
+
+This tool does not yet merge non-`$ref` content from API files. For example, if
+one file has a `$ref` to an operation in another file, this tool
+does not pull in API elements from the referenced file, such as the
+`tags` and `security` requirements of the referenced operation.
+
 ## Use
 
 ### Command Line Interface
