@@ -226,8 +226,6 @@ describe('resolver conflict policies', () => {
         done();
       })
       .catch((ex) => {
-        // fail() not defined?
-        expect(true).toBe(false);
         done(ex);
       });
     });
@@ -262,8 +260,7 @@ describe('resolver conflict policies', () => {
         done();
       })
       .catch((ex) => {
-        // fail() not defined?
-        expect(true).toBe(false);
+        done(ex);
       });
     });
   
