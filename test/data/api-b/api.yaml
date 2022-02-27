@@ -16,7 +16,7 @@ paths:
     $ref: '../root.yaml#/paths/~1health/get'
   /thing:
     parameters:
-      - $ref: '#/components/parameters/idempotencyKeyHeaderParam'
+      - $ref: '../api-a/api.yaml#/components/parameters/idempotencyKeyHeaderParam'
     post:
       operationId: createThing
       description: create a thing.
@@ -44,9 +44,6 @@ paths:
         '403':
           $ref: "../api-a/api.yaml#/components/responses/403"
 components:
-  parameters: 
-    idempotencyKeyHeaderParam:
-      $ref: '../api-a/api.yaml#/components/parameters/idempotencyKeyHeaderParam'
 
   securitySchemes:
     apiKey:

@@ -10,7 +10,6 @@ import * as yaml from 'js-yaml';
 import { JsonNavigation, JsonKey, JsonItem } from './JsonNavigation';
 import { walkObject, visitRefObjects, RefVisitor, isRef } from './RefVisitor';
 import type { Node, RefObject } from './RefVisitor';
-
 /**
  * ApiObject represents an OpenAPI or Async API object
  */
@@ -150,6 +149,9 @@ export class ApiRefResolver {
       const apiResource = await this.api(this.url);
       this.apiDocument = apiResource.api;
     }
+    if (this.apiDocument['x-resolved-from']) {
+      return { api: this.apiDocument, options: this.options };
+    }
     this.urlToApiObjectMap[this.url.href] = this.apiDocument;
 
     const refVisitor: RefVisitor = (node: RefObject, nav: JsonNavigation) => this.refResolvingVisitor(node, nav);
@@ -164,6 +166,7 @@ export class ApiRefResolver {
       this.note(`Pass ${pass} of resolve() resulted in changed $ref. Starting next pass.`);
       }
     }
+    this.tag(this.apiDocument, this.url, true);
     this.apiDocument = await this.cleanup(this.apiDocument);
     return { api: this.apiDocument, options: this.options };
   }
@@ -809,10 +812,12 @@ export class ApiRefResolver {
     return merged;
   }
 
-  tag(item: JsonItem, normalizedRefUrl: URL) {
+  tag(item: JsonItem, normalizedRefUrl: URL, tagDateTime = false) {
     if (item != null && typeof item === 'object') {
       item['x-resolved-from'] = normalizedRefUrl.href;
-      item['x-resolved-at'] = this.dateTime;
+      if (tagDateTime) {
+        item['x-resolved-at'] = this.dateTime;
+      }
       item[ApiRefResolver.TEMPORARY_MARKER] = true; // temporary marker to be removed
     }
   }
