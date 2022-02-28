@@ -206,7 +206,8 @@ in side it's own components object, and the `$ref` replaced by
 `{ $ref: "#/components/section/componentName" }`.
 The `ApiRefOptions.conflictPolicy` determines what to do if the component
 already exists; it is either renamed with a unique numeric suffix (`rename`)
-or it is an error and the entire process fails (`error`).
+or it is an error and the entire process fails (`error`)
+or the conflict is ignored (`ignore`).
 Note: The OpenAPI Specification requires that these paths be relative to the
 path in the
 `servers` object, but this tool simply uses relative references
@@ -215,7 +216,7 @@ from the source URI.)
 `{ $ref: "uri" }` with no `#` fragment. If not yet seen, the entire external file
 is inserted, replacing the `$ref` object. The location is
 remembered so that any duplicate references to the normalized
-path are replaced with a local `{ $ref: #/location/to/resource }'
+path are replaced with a local `{ $ref: #/location/to/resource }`
 4. _Other embedded objects_
 When referencing non-component objects, such as
 `{ $ref: "file-path#paths/~api~path/get" }` to include the `get` operation at
