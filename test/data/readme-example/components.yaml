@@ -1,0 +1,35 @@
+paths:
+  '/health':
+    get:
+      operationId: apiHealth
+      description: Return API Health
+      tags:
+        - Health
+      responses:
+        '200':
+          description: OK. The API is alive and active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/health'
+components:
+  parameters:
+    idempotencyKeyHeaderParam:
+      name: Idempotency-Key
+      description: Idempotency Key to guarantee client requests and not processed multiple times.
+      in: header
+      schema:
+        type: string
+  schemas:
+    health:
+      title: API Health
+      description: API Health response
+      type: object
+      properties:
+        status:
+          description: The API status.
+          type: string
+          enum:
+            - pass
+            - fail
+            - warn
