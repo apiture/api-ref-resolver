@@ -6,7 +6,7 @@ objects with the object referenced at the `uri`.
 The `uri` may be a file-path or a URL with an optional
 `#` [JSON Pointer fragment](https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-json-pointer-04).
 
-For example, if `components.yaml` contains:
+For example, if `components.yaml` contains: <!-- content from: test/data/readme-example/component.yaml -->
 
 ```yaml
 paths:
@@ -46,7 +46,7 @@ components:
             - warn
 ```
 
-and `api.yaml` contains
+and `api.yaml` contains <!-- content from: test/data/readme-example/api.yaml -->
 
 ```yaml
 paths:
@@ -65,6 +65,8 @@ api-ref-resolver -i api.yaml -o resolved-api.yaml
 
 will yield the following in `resolved-api.yaml`:
 
+<!-- generate resolved-api.yaml with test/data/readme-example/generate-example.sh
+     content from: test/data/readme-example/resolved-api.yaml -->
 ```yaml
 paths:
   /health:
