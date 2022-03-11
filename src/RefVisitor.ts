@@ -28,10 +28,17 @@ export type RefVisitor = (node: RefObject, nav: JsonNavigation) => Promise<JsonI
  */
 export type ObjectVisitor = (node: object, nav: JsonNavigation) => Promise<JsonItem>;
 
+/**
+ * Test if a JSON node is a `{ $ref: "uri" }` object
+ */
 export function isRef(node: Node): boolean {
   return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof (node as RefObject).$ref === 'string';
 }
 
+/**
+ * @param node a JSON document node
+ * @returns true if the node has already been processed and resolved.
+ */
 function isResolved(node: Node): boolean {
   // this depends on the tag being added in ApiRefResolver
   return node !== null && typeof node === 'object' && node.hasOwnProperty('x__resolved__');

@@ -1,4 +1,7 @@
-// import * as yaml from 'js-yaml';
+/**
+ * ApiRefResolver main source file.
+ * This contains the ApiRefResolver and support types/interfaces
+ */
 import { strict as assert } from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,6 +13,7 @@ import * as yaml from 'js-yaml';
 import { JsonNavigation, JsonKey, JsonItem } from './JsonNavigation';
 import { walkObject, visitRefObjects, RefVisitor, isRef } from './RefVisitor';
 import type { Node, RefObject } from './RefVisitor';
+
 /**
  * ApiObject represents an OpenAPI or Async API object
  */

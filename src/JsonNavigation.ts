@@ -119,7 +119,7 @@ export class JsonNavigation {
   }
 
   /**
-   * @returns `true` if the current navigation is at /components/section/componentName
+   * @returns `true` if the current navigation is at `/components/section/componentName`
    */
   public isAtComponent() : boolean {
     return this.keys.length === 3 && this.keys[0] === 'components';
@@ -150,7 +150,7 @@ export class JsonNavigation {
   }
 
   /**
-   * Construct an return a new nav that points to the item
+   * Construct and return a new nav that points to the item
    * referenced by `key` within the current document location.
    * @param key the name or index of the nested item
    * @return a new JsonNavigation instance that points to the
@@ -158,7 +158,7 @@ export class JsonNavigation {
    */
   public with(key: JsonKey) {
     const newNav = new JsonNavigation(this.document);
-    newNav.keys = [...this.keys];
+    newNav.keys = [...this.keys]; // make a safe copy
     newNav.keys.push(key);
     return newNav;
   }
