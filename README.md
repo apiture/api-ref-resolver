@@ -51,7 +51,8 @@ and `api.yaml` contains <!-- content from: test/data/readme-example/api.yaml -->
 ```yaml
 paths:
   /health:
-    $ref: 'components.yaml#/paths/~1health/get'
+    get:
+      $ref: 'components.yaml#/paths/~1health/get'
   /thing:
     parameters:
       - $ref: 'components.yaml#/components/parameters/idempotencyKeyHeaderParam'
@@ -70,19 +71,20 @@ will yield the following in `resolved-api.yaml`:
 ```yaml
 paths:
   /health:
-    operationId: apiHealth
-    description: Return API Health
-    tags:
-      - Health
-    responses:
-      '200':
-        description: OK. The API is alive and active.
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/health'
-    x-resolved-from: >-
-      components.yaml#/paths/~1health/get
+    get:
+      operationId: apiHealth
+      description: Return API Health
+      tags:
+        - Health
+      responses:
+        '200':
+          description: OK. The API is alive and active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/health'
+      x-resolved-from: >-
+        components.yaml#/paths/~1health/get
   /thing:
     parameters:
       - $ref: '#/components/parameters/idempotencyKeyHeaderParam'
@@ -113,8 +115,10 @@ components:
             - warn
       x-resolved-from: >-
         components.yaml#/components/schemas/health
-x-resolved-from: api.yaml
-x-resolved-at: '2022-02-28T21:30:37.088Z'
+x-resolved-from: >-
+  api.yaml
+x-resolved-at: '2022-03-11T16:27:59.365Z'
+
 ```
 
 The tool handles chains of JSON references (i.e. `a.yaml` references components from `b.yaml` which references components from `c.yaml`) as
@@ -127,7 +131,7 @@ maintain those component structures; see [Notes](#notes) below.
 Otherwise, it is specification agnostic and works with either
 [OpenAPI](https://www.openapis.org/) specification or [AsyncAPI](https://www.asyncapi.com/) specification.
 
-This tool does not enforce JSON Reference strictness; that is, the `$ref` member may have siblings.
+This tool does _not_ enforce JSON Reference strictness; that is, the `$ref` member may have siblings, as used in [OpenAPI 3.1 Reference Objects](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#referenceObject).
 
 ## Use
 
@@ -135,13 +139,14 @@ This tool does not enforce JSON Reference strictness; that is, the `$ref` member
 
 ```bash
 api-ref-resolver --input api.yaml --output resolved-api.yaml
-# arr is also defined a shortcut command
-arr --input api.yaml --output resolved-api.yaml for api-ref-resolver
+# arr is also defined a shortcut command for api-ref-resolver
+arr --input api.yaml --output resolved-api.yaml 
 arr -i  api.yaml | some-other-pipeline >| resolved-api.yaml
 ```
 
 Command line options:
 
+<!-- run `api-ref-resolver --help` to generate this help -->
 ```text
 Usage: api-ref-resolver [options]
 
@@ -167,8 +172,8 @@ const outputFileName = 'resolved-api.yaml'
 const resolver = new ApiRefResolver(sourceFileName);
 const options: ApiRefOptions = {
   verbose: false,
-  conflictStrategy: 'error', # 'error' | 'rename' | 'ignore';
-  outputFormat: 'yaml'       # 'yaml' | 'json'
+  conflictStrategy: 'error', // 'error' | 'rename' | 'ignore';
+  outputFormat: 'yaml'       // 'yaml' | 'json'
 };
 options.verbose = opts.verbose;
 resolver
@@ -188,43 +193,59 @@ resolver
 
 ## Notes
 
-Below, a `normalized-path` is defined as the simplified
+Below, a _normalized path_ is defined as the simplified
 version of a file-path or URL, i.e. with `../` path elements collapsed.
 The normalized path for `../a/b/c/../../d/e`  is `../a/d/e`.
 
-There are four types of replacements:
+Local references that begin with `#`, such as `{ $ref: "#/path/to/element" }`,
+are left as-is.
 
-1. local references, `{ $ref: "#/path/to/element" }`
-This tool does not alter these.
-2. _Component replacements_ are of the form
+There are three types of replacements:
+Component Replacements,
+Full resource replacements,
+and Other embedded objects.
+
+### Component replacements
+
+_Component replacements_ are of the form
 `{ $ref: "uri#/components/section/componentName" }` (`section` may be `schemas`,
-`parameters`, `response`, or other `components`). This replacement only done for three levels; for longer JSON pointers, see #4 below.
+`parameters`, `response`, or any other `components`).
+Components replacements are only done for three-level JSON Pointers; for longer JSON pointers, see #4 below.
 For component replacements,
-the external URI is read (if not already cached) and the named components
+the content at the external URI is read (if not already cached) and the named component is
 inserted into the target document
 in side it's own components object, and the `$ref` replaced by
 `{ $ref: "#/components/section/componentName" }`.
 The `ApiRefOptions.conflictPolicy` determines what to do if the component
-already exists; it is either renamed with a unique numeric suffix (`rename`)
-or it is an error and the entire process fails (`error`)
-or the conflict is ignored (`ignore`).
+already exists and is a conflict (i.e. it was resolved from a different
+normalized path):
+
+* it is either renamed with a unique numeric suffix (`rename`);
+* it is an error and the entire process fails (`error`)
+* the conflict is ignored (`ignore`).
+
 Note: The OpenAPI Specification requires that these paths be relative to the
 path in the
 `servers` object, but this tool simply uses relative references
 from the source URI.)
-3. _Full resource replacements_ are of the form
+
+### Full resource replacements
+
+_Full resource replacements_ are of the form
 `{ $ref: "uri" }` with no `#` fragment. If not yet seen, the entire external file
 is inserted, replacing the `$ref` object. The location is
 remembered so that any duplicate references to the normalized
-path are replaced with a local `{ $ref: #/location/to/resource }`
-4. _Other embedded objects_
-When referencing non-component objects, such as
-`{ $ref: "file-path#paths/~api~path/get" }` to include the `get` operation at
-the OpenAPI path `/api/path` the external object.
+path are replaced with a local `{ $ref: #/location/of/resolved/resource }`.
 
-After embedding an external object from `uri`, the tool will also resolve any
+### Other embedded objects
+
+When referencing non-component objects, such as
+`{ $ref: "components.yaml#/paths/~1health/get" }` to include the `get` operation at
+the OpenAPI path `/health` the operation object in `components.yaml`.
+
+After embedding an external object from `uri`, the tool will also rewrite any
 `$ref` objects within it, relative to the path that the object was read from.
-Any `{ $ref: "#/..."}` objects are converted to `{ $ref: "normalized-path#/..."}`
+Any `{ $ref: "#/..."}` objects are converted to `{ $ref: "normalized-path#/..."}`.
 
 ### To Do
 
