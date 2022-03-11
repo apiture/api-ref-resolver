@@ -1,4 +1,4 @@
-#!/usr/bin/env bash -x
+#!/usr/bin/env bash
 
 # Generate the resolved-api.yaml as noted in the project README.md
 

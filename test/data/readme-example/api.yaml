@@ -1,6 +1,7 @@
 paths:
   /health:
-    $ref: 'components.yaml#/paths/~1health/get'
+    get:
+      $ref: 'components.yaml#/paths/~1health/get'
   /thing:
     parameters:
       - $ref: 'components.yaml#/components/parameters/idempotencyKeyHeaderParam'
