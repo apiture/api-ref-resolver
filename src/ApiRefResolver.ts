@@ -23,7 +23,7 @@ export type ApiObject =
   | string
   | boolean
   | null
-  | number; /* actually a object|[]|string|boolean|null|number; */
+  | number;
 
 /**
  * Location of a component.
