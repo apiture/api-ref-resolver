@@ -17,13 +17,7 @@ import type { Node, RefObject } from './RefVisitor';
 /**
  * ApiObject represents an OpenAPI or Async API object
  */
-export type ApiObject =
-  | object
-  | []
-  | string
-  | boolean
-  | null
-  | number;
+export type ApiObject = object | [] | string | boolean | null | number;
 
 /**
  * Location of a component.
