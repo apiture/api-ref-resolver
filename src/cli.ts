@@ -22,8 +22,8 @@ async function main(args: string[] = process.argv) {
     .option('-v, --verbose', 'Verbose output')
     .parse(args);
   const opts = cli.opts();
-  const sourceFileName : string = opts.input || 'api.yaml';
-  const outputFileName : string = opts.output;
+  const sourceFileName: string = opts.input || 'api.yaml';
+  const outputFileName: string = opts.output;
 
   const resolver = new ApiRefResolver(sourceFileName);
   const options: ApiRefOptions = {};

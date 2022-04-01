@@ -40,9 +40,7 @@ export type JsonItem = object | [] | string | boolean | number | null;
 
 export class JsonNavigation {
   private document: JsonNode;
-
   private keys: JsonKey[];
-
   constructor(document: JsonNode, ...keys: JsonKey[]) {
     assert(document);
     assert(typeof document === 'object' || Array.isArray(document));
@@ -121,7 +119,7 @@ export class JsonNavigation {
   /**
    * @returns `true` if the current navigation is at `/components/section/componentName`
    */
-  public isAtComponent() : boolean {
+  public isAtComponent(): boolean {
     return this.keys.length === 3 && this.keys[0] === 'components';
   }
 

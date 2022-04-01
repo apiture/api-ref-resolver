@@ -1,3 +1,4 @@
+import { ApiObject } from './ApiRefResolver';
 import { JsonNavigation, JsonItem } from './JsonNavigation';
 
 /**
@@ -8,7 +9,7 @@ import { JsonNavigation, JsonItem } from './JsonNavigation';
 /**
  * A container: a JSON object or array - a JSON container node
  */
-export type Node = object | [];
+export type Node = ApiObject;
 
 /**
  * Represents a JSON Reference object, such as
@@ -26,13 +27,18 @@ export type RefVisitor = (node: RefObject, nav: JsonNavigation) => Promise<JsonI
 /**
  * Function signature for the walkObject callback
  */
-export type ObjectVisitor = (node: object, nav: JsonNavigation) => Promise<JsonItem>;
+export type ObjectVisitor = (node: ApiObject, nav: JsonNavigation) => Promise<JsonItem>;
 
 /**
  * Test if a JSON node is a `{ $ref: "uri" }` object
  */
 export function isRef(node: Node): boolean {
-  return node !== null && typeof node === 'object' && node.hasOwnProperty('$ref') && typeof (node as RefObject).$ref === 'string';
+  return (
+    node !== null &&
+    typeof node === 'object' &&
+    node.hasOwnProperty('$ref') &&
+    typeof (node as RefObject).$ref === 'string'
+  );
 }
 
 /**
@@ -51,7 +57,11 @@ function isResolved(node: Node): boolean {
  * @param nav tracks where we are in the original document
  * @return the modified (annotated) node
  */
-export async function visitRefObjects(node: object, refCallback: RefVisitor, nav?: JsonNavigation): Promise<JsonItem> {
+export async function visitRefObjects(
+  node: ApiObject,
+  refCallback: RefVisitor,
+  nav?: JsonNavigation,
+): Promise<JsonItem> {
   const objectVisitor = async (node: object, nav: JsonNavigation): Promise<JsonItem> => {
     if (isRef(node)) {
       if (isResolved(node)) {
@@ -71,10 +81,14 @@ export async function visitRefObjects(node: object, refCallback: RefVisitor, nav
  * @param nav tracks where we are in the original document
  * @return the modified (annotated) node
  */
-export async function walkObject(node: object, objectCallback: ObjectVisitor, nav?: JsonNavigation): Promise<JsonItem> {
+export async function walkObject(
+  node: ApiObject,
+  objectCallback: ObjectVisitor,
+  nav?: JsonNavigation,
+): Promise<JsonItem> {
   return walkObj(node, nav || new JsonNavigation(node));
 
-  async function walkObj(node: object, location: JsonNavigation): Promise<JsonItem> {
+  async function walkObj(node: ApiObject, location: JsonNavigation): Promise<JsonItem> {
     const object = objectCallback(node, location);
     if (object !== null && typeof object === 'object') {
       const keys = [...Object.keys(node)]; // make copy since this code may re-enter objects

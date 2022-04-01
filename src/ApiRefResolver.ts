@@ -17,7 +17,7 @@ import type { Node, RefObject } from './RefVisitor';
 /**
  * ApiObject represents an OpenAPI or Async API object
  */
-export type ApiObject = object; /* actually a object|[]|string|boolean|null|number; */
+export type ApiObject = object | [] | string | boolean | null | number;
 
 /**
  * Location of a component.
@@ -27,7 +27,7 @@ export type ApiObject = object; /* actually a object|[]|string|boolean|null|numb
  * `.componentName` is `'mySchema'`
  */
 interface ComponentLocation {
-  section: { [sectionName: string] : object};
+  section: { [sectionName: string]: ApiObject };
   sectionName: string;
   componentName: string;
 }
@@ -94,9 +94,9 @@ export class ApiRefResolver {
    */
   private urlToApiObjectMap: { [path: string]: ApiObject };
 
-  private alreadyRewritten: { 
-    path: { [path: string]: boolean },
-    fragment:  { [path: string]: boolean } 
+  private alreadyRewritten: {
+    path: { [path: string]: boolean };
+    fragment: { [path: string]: boolean };
   };
 
   /**
@@ -129,7 +129,7 @@ export class ApiRefResolver {
     this.resolvedRefToRefMap = {};
     this.urlToApiObjectMap = {};
     this.dateTime = new Date().toISOString();
-    this.alreadyRewritten = { path: {}, fragment: {}};
+    this.alreadyRewritten = { path: {}, fragment: {} };
     if (typeof uri === 'string') {
       if (/^\w+:/.exec(uri)) {
         this.url = new URL(uri);
@@ -167,7 +167,7 @@ export class ApiRefResolver {
       this.changed = false;
       this.apiDocument = (await visitRefObjects(this.apiDocument, refVisitor)) as ApiObject;
       if (this.changed) {
-      this.note(`Pass ${pass} of resolve() resulted in changed $ref. Starting next pass.`);
+        this.note(`Pass ${pass} of resolve() resulted in changed $ref. Starting next pass.`);
       }
     }
     this.tag(this.apiDocument, this.url, true);
@@ -212,7 +212,7 @@ export class ApiRefResolver {
       !this.resolvedRefToRefMap[reference],
       `ref ${reference} already has a replacement, ${this.resolvedRefToRefMap[reference]}`,
     );
-    this.note(`Replace $ref URL ${reference} with ${replacementRef}`)
+    this.note(`Replace $ref URL ${reference} with ${replacementRef}`);
     this.resolvedRefToRefMap[reference] = replacementRef;
   }
 
@@ -380,7 +380,7 @@ export class ApiRefResolver {
       return node;
     };
     await visitRefObjects(api, refRewriteVisitor);
-    this.markRefsAlreadyRewritten(nonFragmentUrl, 'path')
+    this.markRefsAlreadyRewritten(nonFragmentUrl, 'path');
   }
 
   /**
@@ -408,7 +408,7 @@ export class ApiRefResolver {
       return node;
     };
     await visitRefObjects(api, refRewriteVisitor);
-    this.markRefsAlreadyRewritten(nonFragmentUrl, 'fragment')
+    this.markRefsAlreadyRewritten(nonFragmentUrl, 'fragment');
   }
 
   /**
@@ -431,7 +431,7 @@ export class ApiRefResolver {
    * @param normalizedApiDocUrl the (normalized) URL of the API document
    * @param what which type of update to track: `path` for {@link rewriteRefPaths} or `fragment` for {@link rewriteRefFragments}
    */
-   private markRefsAlreadyRewritten(normalizedApiDocUrl: URL, what: 'path' | 'fragment') {
+  private markRefsAlreadyRewritten(normalizedApiDocUrl: URL, what: 'path' | 'fragment') {
     const map = this.alreadyRewritten[what];
     const key = normalizedApiDocUrl.href;
     map[key] = true;
@@ -447,9 +447,9 @@ export class ApiRefResolver {
    * @param refObject the current reference object
    * @param componentKeys the JSON keys to the component, [components, sectionName, componentName]
    * @param originalUrl $ref object URL of the component
-   * @returns component location 
+   * @returns component location
    */
-  private checkComponentConflict(refObject: RefObject, componentKeys: JsonKey[], originalUrl: URL) : ComponentLocation {
+  private checkComponentConflict(refObject: ApiObject, componentKeys: JsonKey[], originalUrl: URL): ComponentLocation {
     assert(componentKeys[0] === 'components');
 
     const urlNoFragment = ApiRefResolver.urlNonFragment(originalUrl);
@@ -458,32 +458,32 @@ export class ApiRefResolver {
     if (!this.apiDocument['components']) {
       this.apiDocument['components'] = {};
     }
-    const components : object = this.apiDocument['components'];
+    const components: object = this.apiDocument['components'];
     if (!components[sectionName]) {
       components[sectionName] = {};
     }
-    const section = components[sectionName]
+    const section = components[sectionName];
     const existing = this.apiDocument?.[componentKeys[0]]?.[sectionName]?.[componentKeys[2]];
     if (!existing) {
-       return {section, sectionName, componentName};
+      return { section, sectionName, componentName };
     }
     if (existing === refObject) {
       // The component is defined by a ref and we're processing it!
-       return {section, sectionName, componentName};
+      return { section, sectionName, componentName };
     }
     const resolvedFrom = existing['x-resolved-from'];
     const sameResolution = resolvedFrom === urlNoFragment.href;
 
     if (!sameResolution && this.options?.conflictStrategy === 'error') {
-      const resolvedFromText = resolvedFrom? ` from ${resolvedFrom}` : ''; 
-      throw new Error(`Cannot embed component ${componentKeys} from ${originalUrl.href}: component already exists${resolvedFromText}`);
+      const resolvedFromText = resolvedFrom ? ` from ${resolvedFrom}` : '';
+      throw new Error(
+        `Cannot embed component ${componentKeys} from ${originalUrl.href}: component already exists${resolvedFromText}`,
+      );
     }
 
     if (this.options?.conflictStrategy === 'ignore') {
-      this.note(
-        `Component conflict ignored. ${componentName} found at both ${resolvedFrom} and ${urlNoFragment.href}`,
-      );
-      return {section, sectionName, componentName};
+      this.note(`Component conflict ignored. ${componentName} found at both ${resolvedFrom} and ${urlNoFragment.href}`);
+      return { section, sectionName, componentName };
     }
 
     let candidateName = componentName;
@@ -495,7 +495,7 @@ export class ApiRefResolver {
     componentKeys[2] = candidateName;
 
     this.note(`Renamed components.${sectionName}.${componentName} from ${urlNoFragment.href} as ${candidateName}`);
-    return {section, sectionName, componentName: candidateName};
+    return { section, sectionName, componentName: candidateName };
   }
 
   /**
@@ -625,7 +625,11 @@ export class ApiRefResolver {
     await this.rewriteRefPaths(baseUrl, api);
     const componentKeys = JsonNavigation.asKeys(normalizedRefUrl.hash);
     this.tag(item, normalizedRefUrl);
-    const { section, sectionName, componentName } = this.checkComponentConflict(refObject, componentKeys, normalizedRefUrl); // may rename the component
+    const { section, sectionName, componentName } = this.checkComponentConflict(
+      refObject,
+      componentKeys,
+      normalizedRefUrl,
+    ); // may rename the component
     if (nav.isAtComponent()) {
       const resolvedRef = nav.asFragment();
       this.rememberReplacementForRef(reference, resolvedRef);
