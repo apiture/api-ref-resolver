@@ -846,10 +846,10 @@ export class ApiRefResolver {
     return merged;
   }
 
-  tag(item: JsonItem, normalizedRefUrl: URL, nav: JsonNavigation, tagDateTime = false) {
+  tag(item: JsonItem, normalizedRefUrl: URL, nav: JsonNavigation | undefined, tagDateTime = false) {
     if (item != null && typeof item === 'object') {
-      const inSchema = this.taggable(nav);
-      if (inSchema) {
+      const taggable = nav === undefined || this.taggable(nav);
+      if (taggable) {
         item[ApiRefResolver.RESOLVED_FROM_MARKER] = normalizedRefUrl.href;
         if (tagDateTime) {
           item[ApiRefResolver.RESOLVED_AT_MARKER] = this.dateTime;
@@ -861,17 +861,12 @@ export class ApiRefResolver {
 
   /**
    * Indicate if the location is taggable.
-   * The location is taggable if `nav` is undefined or if
-   * the location is within /components/schemas or the location
+   * The location is taggable if it is within /components/schemas or the location
    * contains the element `schema`
-   * @param nav the navigation to the current location, or `undefined`
+   * @param nav the navigation to the current location
    * @returns if the object at this spot can be tagged with x-resolved-from / x-resolved-at markers
    */
-  taggable(nav?: JsonNavigation) {
-    if (!nav) {
-      // special case - tag the API doc
-      return true;
-    }
+  taggable(nav: JsonNavigation) {
     const path = nav.path();
     return path.length > 2 && ((path[0] === 'components' && path[1] === 'schemas') || path.includes('schema'));
   }
