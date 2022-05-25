@@ -119,10 +119,18 @@ export class ApiRefResolver {
 
   /**
    * Temporary marker added to object to prevent re-resolving them.
+   * Removed in cleanup().
    */
   static readonly TEMPORARY_MARKER = 'x__resolved__';
-
-  static readonly RESOLVED_MARKER = 'x-resolved-from';
+  /**
+   * Marker to indicate where an object was resolved from (unless options.noMarker is true)
+   * See tag()
+   */
+  static readonly RESOLVED_FROM_MARKER = 'x-resolved-from';
+  /**
+   * Marker to indicate when an object was resolved (unless options.noMarker is true)
+   * See tag()
+   */
   static readonly RESOLVED_AT_MARKER = 'x-resolved-at';
 
   /**
@@ -176,7 +184,7 @@ export class ApiRefResolver {
         this.note(`Pass ${pass} of resolve() resulted in changed $ref. Starting next pass.`);
       }
     }
-    this.tag(this.apiDocument, this.url, true);
+    this.tag(this.apiDocument, this.url, undefined, true);
     this.apiDocument = await this.cleanup(this.apiDocument);
     return { api: this.apiDocument, options: this.options };
   }
@@ -189,8 +197,8 @@ export class ApiRefResolver {
   async cleanup(resolved: ApiObject): Promise<object> {
     return (await walkObject(resolved, async (node: object) => {
       if (this.options.noMarkers) {
-        if (node.hasOwnProperty(ApiRefResolver.RESOLVED_MARKER)) {
-          delete node[ApiRefResolver.RESOLVED_MARKER];
+        if (node.hasOwnProperty(ApiRefResolver.RESOLVED_FROM_MARKER)) {
+          delete node[ApiRefResolver.RESOLVED_FROM_MARKER];
         }
         if (node.hasOwnProperty(ApiRefResolver.RESOLVED_AT_MARKER)) {
           delete node[ApiRefResolver.RESOLVED_AT_MARKER];
@@ -337,7 +345,7 @@ export class ApiRefResolver {
     if (ApiRefResolver.COMPONENT_REGEXP.exec(fragment)) {
       return await this.processComponentReplacement(url, refObject, nav);
     }
-    return await this.processOtherReplacement(url, refObject, ref);
+    return await this.processOtherReplacement(url, refObject, ref, nav);
   }
 
   /**
@@ -638,7 +646,7 @@ export class ApiRefResolver {
     const baseUrl = new URL(urlNoFragment.href, this.url);
     await this.rewriteRefPaths(baseUrl, api);
     const componentKeys = JsonNavigation.asKeys(normalizedRefUrl.hash);
-    this.tag(item, normalizedRefUrl);
+    this.tag(item, normalizedRefUrl, nav);
     const { section, sectionName, componentName } = this.checkComponentConflict(
       refObject,
       componentKeys,
@@ -743,7 +751,7 @@ export class ApiRefResolver {
     await this.rewriteRefFragments(normalizedRefUrl, api, nav);
     await this.rewriteRefPaths(normalizedRefUrl, api); // always call this after rewriteLocalRefsWithPrefix
     const merged = this.mergeRefObject(refObject, api);
-    this.tag(merged, normalizedRefUrl);
+    this.tag(merged, normalizedRefUrl, nav);
     return merged;
   }
 
@@ -809,12 +817,15 @@ export class ApiRefResolver {
    *
    * @param normalizedRefUrl the URL in the `$ref` object after normalizing it against the URL of the current target API document
    * @param refObject the `$ref` object
+   * @param reference the $ref value
+   * @param nav where in the API document the refObject resides
    * @returns the updated JSON item (usually an object, but may be an array or primitive)
    */
   private async processOtherReplacement(
     normalizedRefUrl: URL,
     refObject: RefObject,
     reference: string,
+    nav: JsonNavigation,
   ): Promise<JsonItem> {
     assert(normalizedRefUrl.hash);
     assert(!ApiRefResolver.COMPONENT_REGEXP.exec(normalizedRefUrl.hash));
@@ -830,18 +841,38 @@ export class ApiRefResolver {
     await this.rewriteRefPaths(baseUrl, api);
     const resolvedRef = normalizedRefUrl.hash;
     this.rememberReplacementForRef(reference, resolvedRef);
-    this.tag(item, normalizedRefUrl);
+    this.tag(item, normalizedRefUrl, nav);
     const merged = this.mergeRefObject(refObject, item);
     return merged;
   }
 
-  tag(item: JsonItem, normalizedRefUrl: URL, tagDateTime = false) {
+  tag(item: JsonItem, normalizedRefUrl: URL, nav: JsonNavigation, tagDateTime = false) {
     if (item != null && typeof item === 'object') {
-      item[ApiRefResolver.RESOLVED_MARKER] = normalizedRefUrl.href;
-      if (tagDateTime) {
-        item[ApiRefResolver.RESOLVED_AT_MARKER] = this.dateTime;
+      const inSchema = this.taggable(nav);
+      if (inSchema) {
+        item[ApiRefResolver.RESOLVED_FROM_MARKER] = normalizedRefUrl.href;
+        if (tagDateTime) {
+          item[ApiRefResolver.RESOLVED_AT_MARKER] = this.dateTime;
+        }
       }
       item[ApiRefResolver.TEMPORARY_MARKER] = true; // temporary marker to be removed
     }
+  }
+
+  /**
+   * Indicate if the location is taggable.
+   * The location is taggable if `nav` is undefined or if
+   * the location is within /components/schemas or the location
+   * contains the element `schema`
+   * @param nav the navigation to the current location, or `undefined`
+   * @returns if the object at this spot can be tagged with x-resolved-from / x-resolved-at markers
+   */
+  taggable(nav?: JsonNavigation) {
+    if (!nav) {
+      // special case - tag the API doc
+      return true;
+    }
+    const path = nav.path();
+    return path.length > 2 && ((path[0] === 'components' && path[1] === 'schemas') || path.includes('schema'));
   }
 }
