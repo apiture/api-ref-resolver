@@ -140,7 +140,7 @@ This tool does _not_ enforce JSON Reference strictness; that is, the `$ref` memb
 ```bash
 api-ref-resolver --input api.yaml --output resolved-api.yaml
 # arr is also defined a shortcut command for api-ref-resolver
-arr --input api.yaml --output resolved-api.yaml 
+arr --input api.yaml --output resolved-api.yaml
 arr -i  api.yaml | some-other-pipeline >| resolved-api.yaml
 ```
 
@@ -153,6 +153,7 @@ Usage: api-ref-resolver [options]
 Options:
   -V, --version               output the version number
   -i, --input <input-file>    An openapi.yaml or asyncapi.yaml file name or URL. Defaults to "api.yaml"
+  -n, --no-markers            Do not add x-resolved-from and x-resolved-at markers
   -o, --output <output-file>  The output file, defaults to stdout if omitted
   -f, --format [yaml|json]    Output format for stdout if no --output option is used; default to yaml
   -v, --verbose               Verbose output

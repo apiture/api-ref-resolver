@@ -19,6 +19,7 @@ async function main(args: string[] = process.argv) {
     .option('-i, --input <input-file>', 'An openapi.yaml or asyncapi.yaml file name or URL. Defaults to "pi.yaml"')
     .option('-o, --output <output-file>', 'The output file, defaults to stdout if omitted')
     .option('-f, --format [yaml|json]', 'Output format for stdout if no --output option is used; default to yaml')
+    .option('-n, --no-markers', 'Do not add x-resolved-from and x-resolved-at markers')
     .option('-v, --verbose', 'Verbose output')
     .parse(args);
   const opts = cli.opts();
@@ -28,6 +29,7 @@ async function main(args: string[] = process.argv) {
   const resolver = new ApiRefResolver(sourceFileName);
   const options: ApiRefOptions = {};
   options.verbose = opts.verbose;
+  options.noMarkers = opts.noMarkers;
   resolver
     .resolve(options)
     .then((resolved) => {
