@@ -1,6 +1,6 @@
 {
   "name": "@apiture/api-ref-resolver",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Tool to merge multiple OpenAPI or AsyncAPI documents that use JSON Reference links (`$ref`) to reference API definition elements across source files.",
   "main": "lib/src/index.js",
   "bin": {

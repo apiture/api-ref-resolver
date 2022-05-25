@@ -53,6 +53,14 @@ export class JsonNavigation {
   }
 
   /**
+   * Return the navigation keys
+   * @returns The keys that navigate to this point in the JSON document
+   */
+  public path(): JsonKey[] {
+    return [...this.keys];
+  }
+
+  /**
    * Return the document item at the JSON Pointer fragment.
    * @param fragment a URL fragment such as `'#/components/schemas/mySchema'`
    * @returns the item at the nested object specified by `fragment`, or `undefined` if

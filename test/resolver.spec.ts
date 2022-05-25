@@ -33,6 +33,27 @@ describe('resolver test suite', () => {
       });
   });
 
+  test('resolved schemas do not have markers when noMarkers option is given', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/api-b/api.yaml'); // __dirname is the test dir
+    const resolver = new ApiRefResolver(sourceFileName);
+    const options: ApiRefOptions = { noMarkers: true };
+    resolver
+      .resolve(options)
+      .then((result) => {
+        expect(result).toBeDefined();
+        expect(result.api['x-resolved-from']).toBeUndefined();
+        expect(result.api['x-resolved-at']).toBeUndefined();
+
+        expect(result.api['components']['schemas']['thing']).toBeDefined();
+        expect(result.api['components']['schemas']['thing']['x-resolved']).toBeUndefined();
+        expect(result.api['components']['schemas']['thing']['x-resolved-at']).toBeUndefined();
+        done();
+      })
+      .catch((ex) => {
+        done(ex);
+      });
+  });
+
   test('resolves full component references', (done) => {
     const sourceFileName = path.join(__dirname, 'data/api-x/api.yaml'); // __dirname is the test dir
     const resolver = new ApiRefResolver(sourceFileName);
@@ -197,7 +218,6 @@ describe('resolver test suite', () => {
 });
 
 describe('resolver conflict policies', () => {
-
   test('conflict ignore policy yields an exception', (done) => {
     const sourceFileName = path.join(__dirname, 'data/conflict/api.yaml'); // __dirname is the test dir
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
@@ -228,8 +248,8 @@ describe('resolver conflict policies', () => {
       .catch((ex) => {
         done(ex);
       });
-    });
-  
+  });
+
   test('conflict rename policy renames component "health" to "health1"', (done) => {
     const sourceFileName = path.join(__dirname, 'data/conflict/api.yaml'); // __dirname is the test dir
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
@@ -242,7 +262,6 @@ describe('resolver conflict policies', () => {
     resolver
       .resolve(options)
       .then((result) => {
-
         expect(result).toBeDefined();
         const resolved = result.api as any;
         const components = resolved.components;
@@ -262,8 +281,8 @@ describe('resolver conflict policies', () => {
       .catch((ex) => {
         done(ex);
       });
-    });
-  
+  });
+
   test('conflict error policy throws an exception', async () => {
     const sourceFileName = path.join(__dirname, 'data/conflict/api.yaml'); // __dirname is the test dir
     const original = yaml.load(fs.readFileSync(sourceFileName, 'utf8'), {
@@ -273,8 +292,6 @@ describe('resolver conflict policies', () => {
     expect(original).toBeDefined();
     const options: ApiRefOptions = { conflictStrategy: 'error' };
     const resolver = new ApiRefResolver(sourceFileName);
-    await expect(resolver.resolve(options))
-    .rejects
-    .toThrow('Cannot embed component components,schemas,health');
+    await expect(resolver.resolve(options)).rejects.toThrow('Cannot embed component components,schemas,health');
   });
 });
