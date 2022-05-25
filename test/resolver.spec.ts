@@ -33,7 +33,7 @@ describe('resolver test suite', () => {
       });
   });
 
-  test('resolved schemas do not have markers with option', (done) => {
+  test('resolved schemas do not have markers when noMarkers option is given', (done) => {
     const sourceFileName = path.join(__dirname, 'data/api-b/api.yaml'); // __dirname is the test dir
     const resolver = new ApiRefResolver(sourceFileName);
     const options: ApiRefOptions = { noMarkers: true };

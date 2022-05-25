@@ -122,7 +122,7 @@ export class ApiRefResolver {
    */
   static readonly TEMPORARY_MARKER = 'x__resolved__';
 
-  static readonly RESOLVED_MARKER = 'x-resolved';
+  static readonly RESOLVED_MARKER = 'x-resolved-from';
   static readonly RESOLVED_AT_MARKER = 'x-resolved-at';
 
   /**
