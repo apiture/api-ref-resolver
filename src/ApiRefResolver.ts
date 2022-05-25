@@ -50,6 +50,9 @@ export interface ApiRefOptions {
   /** If true, log more info to console.warn */
   verbose?: boolean;
 
+  /** If true, do not inject x-resolved-from and x-resolved-at markers */
+  noMarkers?: boolean;
+
   /**
    * What to do id two different resolutions define the same component,
    * either rename the second one by adding a unique integer suffix, or
@@ -119,6 +122,9 @@ export class ApiRefResolver {
    */
   static readonly TEMPORARY_MARKER = 'x__resolved__';
 
+  static readonly RESOLVED_MARKER = 'x-resolved';
+  static readonly RESOLVED_AT_MARKER = 'x-resolved-at';
+
   /**
    * Build a new `$ref` resolver
    * @param uri The location of the API document: a file name or URL
@@ -182,6 +188,14 @@ export class ApiRefResolver {
    */
   async cleanup(resolved: ApiObject): Promise<object> {
     return (await walkObject(resolved, async (node: object) => {
+      if (this.options.noMarkers) {
+        if (node.hasOwnProperty(ApiRefResolver.RESOLVED_MARKER)) {
+          delete node[ApiRefResolver.RESOLVED_MARKER];
+        }
+        if (node.hasOwnProperty(ApiRefResolver.RESOLVED_AT_MARKER)) {
+          delete node[ApiRefResolver.RESOLVED_AT_MARKER];
+        }
+      }
       if (node.hasOwnProperty(ApiRefResolver.TEMPORARY_MARKER)) {
         delete node[ApiRefResolver.TEMPORARY_MARKER];
       }
@@ -823,9 +837,9 @@ export class ApiRefResolver {
 
   tag(item: JsonItem, normalizedRefUrl: URL, tagDateTime = false) {
     if (item != null && typeof item === 'object') {
-      item['x-resolved-from'] = normalizedRefUrl.href;
+      item[ApiRefResolver.RESOLVED_MARKER] = normalizedRefUrl.href;
       if (tagDateTime) {
-        item['x-resolved-at'] = this.dateTime;
+        item[ApiRefResolver.RESOLVED_AT_MARKER] = this.dateTime;
       }
       item[ApiRefResolver.TEMPORARY_MARKER] = true; // temporary marker to be removed
     }
