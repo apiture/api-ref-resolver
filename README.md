@@ -210,16 +210,22 @@ and Other embedded objects.
 
 _Component replacements_ are of the form
 `{ $ref: "uri#/components/section/componentName" }` (`section` may be `schemas`,
-`parameters`, `response`, or any other `components`).
-Components replacements are only done for three-level JSON Pointers; for longer JSON pointers, see #4 below.
-For component replacements,
+`parameters`, `response`, or any other item in `components`).
+Component replacements are only done for three-level JSON Pointers; for longer JSON pointers, see #4 below.
+
+If the containing $ref object is at `/components/section/componentName0`, it does not contain any other keys, and
+`componentName0` equals `componentName`, the entire referenced object is inserted
+in place of the original `$ref` object and the mapping `uri#/components/section/componentName` &rArr; `#/components/section/componentName`
+is remembered.
+
+Otherwise,
 the content at the external URI is read (if not already cached) and the named component is
 inserted into the target document
-in side it's own components object, and the `$ref` replaced by
+inside it's own components object, and the `$ref` replaced by
 `{ $ref: "#/components/section/componentName" }`.
-The `ApiRefOptions.conflictPolicy` determines what to do if the component
-already exists and is a conflict (i.e. it was resolved from a different
-normalized path):
+
+The `ApiRefOptions.conflictPolicy` determines what to do if the `componentName`
+already exists in the target document:
 
 * it is either renamed with a unique numeric suffix (`rename`);
 * it is an error and the entire process fails (`error`)
@@ -228,7 +234,7 @@ normalized path):
 Note: The OpenAPI Specification requires that these paths be relative to the
 path in the
 `servers` object, but this tool simply uses relative references
-from the source URI.)
+from the source URI.
 
 ### Full resource replacements
 
@@ -237,6 +243,7 @@ _Full resource replacements_ are of the form
 is inserted, replacing the `$ref` object. The location is
 remembered so that any duplicate references to the normalized
 path are replaced with a local `{ $ref: #/location/of/resolved/resource }`.
+This is _only_ done if the `$ref` is the _only_ key in the object.
 
 ### Other embedded objects
 

@@ -14,6 +14,8 @@ import { JsonNavigation, JsonKey, JsonItem } from './JsonNavigation';
 import { walkObject, visitRefObjects, RefVisitor, isRef } from './RefVisitor';
 import type { Node, RefObject } from './RefVisitor';
 
+import * as v8 from 'v8';
+
 /**
  * ApiObject represents an OpenAPI or Async API object
  */
@@ -42,8 +44,8 @@ interface ApiResource {
   api: ApiObject;
   /** The URL fragment, if it existed in the `url` */
   fragment?: string;
-  /** The item within the API document at the given fragment, if any */
-  item?: JsonItem;
+  /** The path to an item within the API document at the given fragment, if any */
+  itemPath: JsonKey[];
 }
 
 export interface ApiRefOptions {
@@ -211,17 +213,21 @@ export class ApiRefResolver {
     })) as object;
   }
 
+  public static deepClone = (obj: any): any => {
+    return v8.deserialize(v8.serialize(obj)); // kinda simple way to clone, but it works...
+  };
+
   /**
    * @param reference a `$ref` URI
    * @returns the replacement `$ref` to a previously process/resolved `$ref` string
    */
-  private replacementForRef(reference: string): string {
+  private replacementRefFor(reference: string): string {
     return this.resolvedRefToRefMap[reference];
   }
 
   /**
    * Remember that `ref` should now be replaced with `replacementRef`.
-   * Look up replacements with `replacementForRef(reference)`.
+   * Look up replacements with `replacementRefRef(reference)`.
    * @param reference an external `$ref` URI that has been resolved
    * @param replacementRef the new reference. It could be relative
    * to the current document (`#/components/schemas/mySchema`)
@@ -235,7 +241,7 @@ export class ApiRefResolver {
       `ref ${reference} already has a replacement, ${this.resolvedRefToRefMap[reference]}`,
     );
     this.note(`Replace $ref URL ${reference} with ${replacementRef}`);
-    this.resolvedRefToRefMap[reference] = replacementRef;
+    this.resolvedRefToRefMap[reference] = ApiRefResolver.deepClone(replacementRef);
   }
 
   /**
@@ -276,14 +282,14 @@ export class ApiRefResolver {
     const url = typeof uri === 'string' ? pathToFileURL(uri) : uri;
     const urlKey = ApiRefResolver.urlNonFragment(url);
     const fragment = ApiRefResolver.urlFragment(url);
+    const itemPath = fragment ? JsonNavigation.asKeys(fragment) : undefined;
     let api = this.urlToApiObjectMap[urlKey.href];
     if (api) {
-      const item = fragment ? new JsonNavigation(api).itemAtFragment(fragment) : undefined;
       return {
         url,
         api,
         fragment,
-        item,
+        itemPath,
       };
     }
     const text = url.protocol === 'file:' ? await this.readFromFile(url) : await this.readFromUrl(url);
@@ -291,12 +297,11 @@ export class ApiRefResolver {
     // Cache the api object by the URL
     this.urlToApiObjectMap[urlKey.href] = api;
     this.note(`loaded API document from ${url.href}`);
-    const item = fragment ? new JsonNavigation(api).itemAtFragment(fragment) : undefined;
     return {
       url: urlKey,
       api,
       fragment,
-      item,
+      itemPath,
     };
   }
 
@@ -329,7 +334,7 @@ export class ApiRefResolver {
     if (ref.startsWith('#')) {
       return refObject;
     }
-    const replacementRef = this.replacementForRef(ref);
+    const replacementRef = this.replacementRefFor(ref);
     if (replacementRef) {
       refObject.$ref = replacementRef;
       return refObject;
@@ -538,22 +543,24 @@ export class ApiRefResolver {
    * `refObject` is the `{ description: "...", $ref: "#/components/schemas/problemResponse" }` object.
    * Note that we can't simply _replace_ the entire `$ref` object with the API object at the URL;
    * that would lose the "description".
-   * Instead, we delete the `$ref` from the `refObject` with the read API document,
+   * Instead, we delete the `$ref` from the `refObject` within the API document,
    * then merge in any additional properties from the original `refObject` into the API document
    * (if it is an object).
    *
    * @param refObject a `$ref` object
-   * @param apiDocument the API document read from the `url`
+   * @param apiElement the API element read from the `url`
    */
-  mergeRefObject(refObject: RefObject, apiDocument: JsonItem): ApiObject {
-    if (typeof apiDocument !== 'object') {
+  mergeRefObject(refObject: RefObject, apiElement: JsonItem): ApiObject {
+    if (typeof apiElement !== 'object') {
       return;
     }
-    // It may be an array or even a primitive... unlikely, but possible.
     const refProperties = { ...refObject };
-    delete refProperties.$ref;
-    // matching properties from refProperties will override those from apiDocument:
-    const merged = { ...apiDocument, ...refProperties };
+    delete refProperties['$ref'];
+    // matching properties from refProperties will override those from apiElement
+    // Clone the object to prevent injection of YAML *ref_0 / &ref_0 objects
+    // in case this element is referenced multiple times
+    const clone = ApiRefResolver.deepClone(apiElement);
+    const merged = { ...clone, ...refProperties };
     return merged;
   }
 
@@ -636,49 +643,67 @@ export class ApiRefResolver {
     assert(normalizedRefUrl.hash);
     assert(ApiRefResolver.COMPONENT_REGEXP.exec(normalizedRefUrl.hash));
     const reference: string = normalizedRefUrl.href;
-    const seen = this.replacementForRef(reference);
+    const seen = this.replacementRefFor(reference);
     if (seen) {
       refObject.$ref = seen;
       return refObject;
     }
     const urlNoFragment = ApiRefResolver.urlNonFragment(normalizedRefUrl);
-    const { api, item } = await this.api(normalizedRefUrl);
+    const { api, itemPath } = await this.api(normalizedRefUrl);
     const baseUrl = new URL(urlNoFragment.href, this.url);
     await this.rewriteRefPaths(baseUrl, api);
+    const item = this.apiItem(api, itemPath);
     const componentKeys = JsonNavigation.asKeys(normalizedRefUrl.hash);
     this.tag(item, normalizedRefUrl, nav);
+
+    // Simplest case:
+    // components/foo/bar: { $ref: uri:/components/foo/bar }
+    if (nav.isAtComponent() && this.isSimpleRef(refObject) && this.sameComponentName(nav, componentKeys)) {
+      this.rememberReplacementForRef(reference, nav.asFragment());
+      return item; // item is already safely cloned cia this.api()
+    }
+
     const { section, sectionName, componentName } = this.checkComponentConflict(
       refObject,
       componentKeys,
       normalizedRefUrl,
-    ); // may rename the component
-    if (nav.isAtComponent()) {
-      const resolvedRef = nav.asFragment();
-      this.rememberReplacementForRef(reference, resolvedRef);
-      // for example, a ref in the components section, such as:
-      // components:
-      //   schemas:
-      //     myThing:
-      //       $ref: '../other/api.yaml#/components/schemas/myThing
-      const component = section[componentName];
-      if (isRef(component)) {
-        const merged = this.mergeRefObject(refObject, item);
-        section[componentName] = merged;
-        return merged;
-      } else {
-        section[componentName] = item as object;
-        return item;
-      }
-    } else {
-      // the $ref was not at a component. Replace the ref with $ref of the new component.
-      section[componentName] = item as object;
-      this.note(`Injected components.${sectionName}.${componentName}`);
-      refObject.$ref = JsonNavigation.asFragment(componentKeys, true);
-      this.rememberReplacementForRef(reference, refObject.$ref);
-      return refObject;
-    }
+    ); // this may rename the new resolved component
+    const newVal = ApiRefResolver.deepClone(item);
+    section[componentName] = newVal;
+    const resolvedRef = JsonNavigation.asFragment(['components', sectionName, componentName], true);
+    this.rememberReplacementForRef(reference, resolvedRef);
+    refObject.$ref = resolvedRef;
+    return refObject;
   }
 
+  apiItem(api: ApiObject, itemPath: JsonKey[]): JsonItem {
+    return JsonNavigation.itemAtFragment(api, JsonNavigation.asFragment(itemPath, true));
+  }
+
+  /**
+   * Check if the nav and the resolved component are the same component name
+   * @param nav The location of the element contains a $ref
+   * @param componentKeys The path of keys in a reference component
+   * @returns `true` iff the current component location has the same name as the referenced component.
+   * For example, `/components/securitySchemes/accessToken` contains just
+   * `$ref: uriToOtherDocument#/components/securitySchemes/accessToken
+   * Both locations must be exactly 3 elements long, [ `components`, _sectionName_, _componentsName_ ].
+   */
+  sameComponentName(nav: JsonNavigation, componentKeys: JsonKey[]) {
+    const path = nav.path();
+    const nameLeft = path[path.length - 1];
+    const nameRight = componentKeys[componentKeys.length - 1];
+    return path.length === 3 && componentKeys.length === 3 && nameLeft === nameRight;
+  }
+
+  /**
+   * Return `true` if `refObject` does not contains any additional properties.
+   * @param refObject an object with a `$ref` key
+   * @returns  `true` iff `refObject` does not contains any additional properties.
+   */
+  private isSimpleRef(refObject: RefObject) {
+    return Object.keys(refObject).length === 1;
+  }
   /**
    * Inline the content for a `{ $ref: "http://path/to/resource" }`
    * or `{ $ref: "../path/to/resource"}` where the entire
@@ -738,7 +763,7 @@ export class ApiRefResolver {
   ): Promise<JsonItem> {
     assert(normalizedRefUrl.hash === '');
     const reference: string = normalizedRefUrl.href;
-    const seen = this.replacementForRef(reference);
+    const seen = this.replacementRefFor(reference);
     if (seen) {
       refObject.$ref = seen;
       return refObject;
@@ -829,16 +854,17 @@ export class ApiRefResolver {
   ): Promise<JsonItem> {
     assert(normalizedRefUrl.hash);
     assert(!ApiRefResolver.COMPONENT_REGEXP.exec(normalizedRefUrl.hash));
-    const seen = this.replacementForRef(reference);
+    const seen = this.replacementRefFor(reference);
     if (seen) {
       refObject.$ref = seen;
       return refObject;
     }
-    const { api, item } = await this.api(normalizedRefUrl);
+    const { api, itemPath } = await this.api(normalizedRefUrl);
     const urlNoFragment = ApiRefResolver.urlNonFragment(normalizedRefUrl);
     const baseUrl = new URL(urlNoFragment.href, this.url);
     // await this.rewriteRefFragments(baseUrl, api, nav);  // always call this before rewriteRefPaths
     await this.rewriteRefPaths(baseUrl, api);
+    const item = this.apiItem(api, itemPath);
     const resolvedRef = normalizedRefUrl.hash;
     this.rememberReplacementForRef(reference, resolvedRef);
     this.tag(item, normalizedRefUrl, nav);
@@ -848,7 +874,7 @@ export class ApiRefResolver {
 
   tag(item: JsonItem, normalizedRefUrl: URL, nav: JsonNavigation | undefined, tagDateTime = false) {
     if (item != null && typeof item === 'object') {
-      const taggable = nav === undefined || this.taggable(nav);
+      const taggable = nav === undefined || this.taggable(item, nav);
       if (taggable) {
         item[ApiRefResolver.RESOLVED_FROM_MARKER] = normalizedRefUrl.href;
         if (tagDateTime) {
@@ -861,13 +887,17 @@ export class ApiRefResolver {
 
   /**
    * Indicate if the location is taggable.
-   * The location is taggable if it is within /components/schemas or the location
-   * contains the element `schema`
+   * The location is taggable if not a $ref object or it's nav is a schema.
+   * (OpenAPI does not allow x- specification extension in reference objects,
+   * but JSON Schema does.)
    * @param nav the navigation to the current location
-   * @returns if the object at this spot can be tagged with x-resolved-from / x-resolved-at markers
+   * @returns if the object at this spot can be tagged with an x-resolved-from marker
    */
-  taggable(nav: JsonNavigation) {
-    const path = nav.path();
-    return path.length > 2 && ((path[0] === 'components' && path[1] === 'schemas') || path.includes('schema'));
+  taggable(item: JsonItem, nav: JsonNavigation) {
+    if (isRef(item)) {
+      const path = nav.path();
+      return path.length > 2 && ((path[0] === 'components' && path[1] === 'schemas') || path.includes('schema'));
+    }
+    return true;
   }
 }
