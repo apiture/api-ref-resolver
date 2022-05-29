@@ -213,7 +213,7 @@ export class ApiRefResolver {
     })) as object;
   }
 
-  public static deepClone = (obj: any): any => {
+  public static deepClone = (obj) => {
     return v8.deserialize(v8.serialize(obj)); // kinda simple way to clone, but it works...
   };
 
