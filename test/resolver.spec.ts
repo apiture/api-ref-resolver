@@ -161,6 +161,7 @@ describe('resolver test suite', () => {
     resolver
       .resolve()
       .then((result) => {
+        expect(yaml.dump(result.api).includes('ref_0')).toBeFalsy();
         const resolved = result.api as any;
         expect(resolved).toBeDefined();
         const components = resolved.components;
@@ -203,6 +204,35 @@ describe('resolver test suite', () => {
         const response422 = patch.responses[422];
         expect(response422.$ref).toBeDefined();
         expect(Object.keys(response422)).toEqual(['$ref']);
+        done();
+      })
+      .catch((ex) => {
+        done(ex);
+      });
+  });
+
+  test('resolves a ref of a ref', (done) => {
+    const sourceFileName = path.join(__dirname, 'data/api-d/api.yaml');
+    const resolver = new ApiRefResolver(sourceFileName);
+    resolver
+      .resolve()
+      .then((result) => {
+        const text = yaml.dump(result.api);
+        expect(text.includes('ref_0')).toBeFalsy();
+        const resolved = result.api as any;
+        expect(resolved).toBeDefined();
+        const components = resolved.components;
+        const responses = Object.keys(components.responses);
+        const expectedResponses = ['400', '400CreateThing'];
+        expect(responses).toEqual(expectedResponses);
+        const response = components.responses['400'];
+        expect(response).toBeDefined();
+        expect(response.$ref).toBeFalsy();
+        const post = resolved.paths['/thing'].post;
+        expect(post).toBeDefined();
+        const response400 = post.responses[400];
+        expect(response400.$ref).toBeDefined();
+        expect(Object.keys(response400)).toEqual(['$ref']);
         done();
       })
       .catch((ex) => {

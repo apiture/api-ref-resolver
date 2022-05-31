@@ -5,10 +5,9 @@
  */
 
 import { strict as assert } from 'assert';
-
 import * as jsonPointer from 'json-pointer';
-
 import type { Node } from './RefVisitor';
+import { ApiRefResolver } from './ApiRefResolver';
 
 /**
  * Represents a JSON object or JSON array
@@ -71,7 +70,10 @@ export class JsonNavigation {
       return undefined;
     }
     const noHash = fragment.substring(1);
-    return jsonPointer(this.document, noHash);
+    const val = jsonPointer(this.document, noHash);
+    // To be safe, we clone objects so we do not end up with YAML &ref_0/*ref_0
+    const clone = ApiRefResolver.deepClone(val);
+    return clone;
   }
 
   /**

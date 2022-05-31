@@ -210,16 +210,115 @@ and Other embedded objects.
 
 _Component replacements_ are of the form
 `{ $ref: "uri#/components/section/componentName" }` (`section` may be `schemas`,
-`parameters`, `response`, or any other `components`).
-Components replacements are only done for three-level JSON Pointers; for longer JSON pointers, see #4 below.
-For component replacements,
-the content at the external URI is read (if not already cached) and the named component is
-inserted into the target document
-in side it's own components object, and the `$ref` replaced by
-`{ $ref: "#/components/section/componentName" }`.
-The `ApiRefOptions.conflictPolicy` determines what to do if the component
-already exists and is a conflict (i.e. it was resolved from a different
-normalized path):
+`parameters`, `response`, or any other item in `components`).
+Component replacements are only done for three-level JSON Pointers; for longer JSON pointers, see #4 below.
+
+If the containing $ref object is at `/components/section/componentName0`, it does not contain any other keys, and
+`componentName0` equals `componentName`, the entire referenced object is inserted
+in place of the original `$ref` object and the mapping `uri#/components/section/componentName` &rArr; `#/components/section/componentName`
+is remembered.
+
+This is useful to reuse security schemes in OpenAPI 3.1, which are reference by names instead of a `$ref`.
+For example, if `common.yaml` contains the definition of the `apiKey` security schema:
+
+```yaml
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      name: API-Key
+      in: header
+      description: 'API Key based client identification.'
+```
+
+then other API source files can reference this via
+
+```yaml
+paths:
+  '/some/path':
+    get:
+      security:
+        apiKey: []
+components:
+  securitySchemes:
+    apiKey:
+      $ref: '../common.yaml#/components/securitySchemes/apiKey'
+```
+
+This tool will replace the `$ref` definition of `apiKey`
+with the one from `common.yaml`:
+
+```yaml
+paths:
+  '/some/path':
+    get:
+      security:
+        apiKey: []
+components:
+  securitySchemes:
+      type: apiKey
+      name: API-Key
+      in: header
+      description: 'API Key based client identification.'
+      x-resolved-from: common.yaml#/components/securitySchemes/apiKey
+```
+
+In a more complicated case (where the `$ref` contains other properties,
+preventing a simple replacement),
+the content at the external URI is read and the new named component is
+inserted into the target document's components object. The non-local `$ref` ( `../common.yaml#/components/responses/404` in this case) replaced by
+a local ref, such as `{ $ref: "#/components/responses/404" }`.
+
+For example, if an API has several operations that can return a 404 when a thing
+is not found, it may define the reusable component response
+with a clean description of the problem:
+
+```yaml
+
+paths:
+  /thing/{thingId}:
+    get:
+      ...
+      responses:
+        '404':
+          $ref: '#/components/responses/404Thing'
+    put:
+      ...
+      responses:
+        '404':
+          $ref: '#/components/responses/404Thing'
+    patch:
+      ...
+      responses:
+        '404':
+          $ref: '#/components/responses/404Thing'
+components:
+  responses:
+    '404Thing':
+      description: Thing not found at /thing/{thingId}.
+      $ref: 'common.yaml#/components/responses/404'
+```
+
+The tool will inline the `404` response from `common.yaml` as a component,
+then replace the remote `$ref` inside thr `404Thing` response with a reference to the local, inlined `404`:
+
+```yaml
+components:
+  responses:
+    '404':
+      description: Not found. There is no such resource at the request URL.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/problemResponse'
+      x-resolved-from: common.yaml#/components/responses/404
+    404Thing:
+      description: Thing not found at /thing/{thingId}.
+      $ref: '#/components/responses/404'
+```
+
+The `ApiRefOptions.conflictPolicy` determines what to do if the `componentName`
+already exists in the target document:
 
 * it is either renamed with a unique numeric suffix (`rename`);
 * it is an error and the entire process fails (`error`)
@@ -228,7 +327,7 @@ normalized path):
 Note: The OpenAPI Specification requires that these paths be relative to the
 path in the
 `servers` object, but this tool simply uses relative references
-from the source URI.)
+from the source URI.
 
 ### Full resource replacements
 
@@ -237,6 +336,7 @@ _Full resource replacements_ are of the form
 is inserted, replacing the `$ref` object. The location is
 remembered so that any duplicate references to the normalized
 path are replaced with a local `{ $ref: #/location/of/resolved/resource }`.
+This is _only_ done if the `$ref` is the _only_ key in the object.
 
 ### Other embedded objects
 
