@@ -39,7 +39,7 @@
   ],
   "author": "David Biesack <David.Biesack@apiture.com>",
   "license": "ISC",
-  "homepage": "https://bitbucket.org/APITURE/api-ref-resolver#readme",
+  "homepage": "https://github.com/apiture/api-ref-resolver/blob/main/README.md",
   "dependencies": {
     "bl": "^5.0.0",
     "commander": "^9.0.0",
