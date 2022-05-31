@@ -24,7 +24,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@bitbucket.org/APITURE/api-ref-resolver.git"
+    "url": "git@github.com:apiture/api-ref-resolver.git"
   },
   "keywords": [
     "JSON",
