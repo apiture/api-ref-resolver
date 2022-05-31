@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Multi-file OpenAPI
+  description: 'API definition that references components from ../api-a/api.yaml'
+  version: 0.1.0
+  contact: {}
+servers:
+  - url: /d
+tags:
+  - name: D
+    description: D
+
+paths:
+  /thing:
+    post:
+      operationId: createThing
+      summary: Create a Thing
+      description: Create a Thing
+      tags:
+        - B
+      security:
+        - apiKey: []
+      requestBody:
+        description: A new thing.
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: OK. A thing was returned.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/400CreateThing'
+        # '401':
+        #  $ref: '#/components/responses/401'
+components:
+  responses:
+    '400CreateThing':
+      description: Bad Request
+      $ref: '../api-a/api.yaml#/components/responses/400'
+    # '401':
+    #  description: Bad Request. (defined in api-d/api.yaml)
+    #  $ref: '../api-a/api.yaml#/components/responses/401'
