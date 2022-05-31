@@ -167,7 +167,7 @@ import { ApiRefResolver } from '@apiture/api-ref-resolver';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const sourceFileName = 'apy.yaml'
+const sourceFileName = 'api.yaml'
 const outputFileName = 'resolved-api.yaml'
 
 const resolver = new ApiRefResolver(sourceFileName);
