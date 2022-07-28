@@ -83,7 +83,7 @@ export class ApiRefResolver {
   /**
    * A `RegExp` which only matches an API component relative-uri fragment `#/components/<section>/<componentName>`
    */
-  static readonly COMPONENT_REGEXP = /^#\/components\/\w+\/[^/]+$/;
+  static readonly COMPONENT_REGEXP = /^#\/components\/[^\\/]+\/[^\\/]+$/;
 
   /** The URL of the current API being processed */
   private url: URL;
