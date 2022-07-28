@@ -165,7 +165,7 @@ Options:
 ```javascript
 import { ApiRefResolver } from '@apiture/api-ref-resolver';
 import * as fs from 'fs';
-import * as path from 'path';
+import * as yaml from 'js-yaml';
 
 const sourceFileName = 'apy.yaml'
 const outputFileName = 'resolved-api.yaml'
@@ -180,16 +180,24 @@ options.verbose = opts.verbose;
 resolver
   .resolve(options)
   .then((resolved) => {
-    if (outputFileName) {
-      const outDir = path.dirname(outputFileName);
-      mkdirs(outDir);
-      fs.writeFileSync(outputFileName, yaml.dump(resolved.api), 'utf8');
-    }
+    fs.writeFileSync(outputFileName, yaml.dump(resolved.api), 'utf8');
   })
   .catch((ex) => {
     console.error(ex.message);
     process.exit(1);
   });
+```
+
+or with `async`/`await`:
+
+```javascript
+// ..initialize as above, but inside an async function:
+try {
+  const resolved = await resolve(options);
+  fs.writeFileSync(outputFileName, yaml.dump(resolved.api), 'utf8');
+} catch (e) {
+  // handle error e
+}
 ```
 
 ## Notes
