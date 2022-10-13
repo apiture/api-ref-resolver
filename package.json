@@ -37,7 +37,7 @@
     "lint",
     "test"
   ],
-  "author": "David Biesack <https://github.com/DavidBiesack>",
+  "author": { "name": "David Biesack", "url": "https://github.com/DavidBiesack"},
   "license": "ISC",
   "homepage": "https://github.com/apiture/api-ref-resolver/blob/main/README.md",
   "dependencies": {
